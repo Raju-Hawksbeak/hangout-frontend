@@ -185,9 +185,11 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         body: JSON.stringify(payload)
       });
 
-      if (!saveRes.ok) throw new Error('Failed to save voice drop');
-      const savedElement = await saveRes.json();
-
+     // if (!saveRes.ok) throw new Error('Failed to save voice drop');
+     // const savedElement = await saveRes.json();
+        const saveData = await saveRes.json();
+        if (!saveRes.ok) throw new Error(saveData.detail || 'Failed to save voice drop');
+        const savedElement = saveData;
       setElements((prev) =>
         prev.some((el) => el.id === savedElement.id) ? prev : [...prev, savedElement]
       );
