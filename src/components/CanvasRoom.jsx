@@ -129,27 +129,26 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setIsRecording(false);
   };
 
-  // 5. Extract Peaks -> Upload to S3 -> Persist Element -> Broadcast
+  // 5. Extract Peaks -> Upload via Backend -> Persist Element -> Broadcast
   const handleAudioUploadAndDrop = async (audioBlob) => {
     setIsUploading(true);
     try {
       const { peaks, duration } = await extractWaveformPeaks(audioBlob, 30);
 
-      // Request presigned S3 upload ticket
-      const ticketRes = await fetch(
-        `${API_BASE_URL}/canvases/media/upload-ticket?file_extension=webm&content_type=audio/webm`,
-        { method: 'POST' }
-      );
-      if (!ticketRes.ok) throw new Error('Could not get storage upload ticket');
-      const { upload_url, media_url } = await ticketRes.json();
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'voice-drop.webm');
 
-      // Upload audio directly to Supabase Storage / B2 / R2
-      const putRes = await fetch(upload_url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'audio/webm' },
-        body: audioBlob
+      const uploadRes = await fetch(`${API_BASE_URL}/canvases/media/upload-direct`, {
+        method: 'POST',
+        body: formData
       });
-      if (!putRes.ok) throw new Error('Audio storage upload failed');
+
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) {
+        throw new Error(uploadData.detail || 'Audio storage upload failed');
+      }
+
+      const { media_url } = uploadData;
 
       const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 310));
       const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 280));
@@ -205,12 +204,11 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
       setStackTarget(null);
     } catch (err) {
-      setStatusBanner(err.message || 'Upload failed. Check S3 storage settings.');
+      setStatusBanner(err.message || 'Upload failed.');
     } finally {
       setIsUploading(false);
     }
   };
-
   // 6. Drop a Quick Text Sticky Note
   const handleAddNote = async (e) => {
     e.preventDefault();
