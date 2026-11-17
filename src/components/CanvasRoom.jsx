@@ -192,7 +192,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         const savedElement = saveData;*/
       const savedElement = await saveRes.json();
       if (!saveRes.ok) {
-        throw new Error(savedElement.detail || JSON.stringify(savedElement));
+        throw new Error(savedElement.detail || JSON.stringify(savedElement) ||'here');
       }
       setElements((prev) =>
         prev.some((el) => el.id === savedElement.id) ? prev : [...prev, savedElement]
