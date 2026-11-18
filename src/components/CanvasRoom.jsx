@@ -115,7 +115,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         y: marginY + row * cardHeight
       };
 
-      // Broadcast updated position to other connected peers
       if (socketRef.current?.readyState === WebSocket.OPEN) {
         socketRef.current.send(
           JSON.stringify({
