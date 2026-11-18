@@ -7,7 +7,8 @@ export default function DraggableElement({
   socketRef,
   currentUser,
   canvasId,
-  onStackAudio
+  onStackAudio,
+  onDelete
 }) {
   const initialPos = element.transform_data || { x: 60, y: 100 };
   const [position, setPosition] = useState({ x: initialPos.x ?? 60, y: initialPos.y ?? 100 });
@@ -37,7 +38,12 @@ export default function DraggableElement({
   };
 
   const handlePointerDown = (e) => {
+    // Allow clicks on PLAY, + Layer Sound, Delete, or links without triggering card drag
+    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input')) {
+      return;
+    }
     if (isLockedByOther) return;
+
     isDraggingRef.current = true;
     dragOffsetRef.current = {
       x: e.clientX - latestPosRef.current.x,
@@ -125,6 +131,38 @@ export default function DraggableElement({
         zIndex: element.transform_data?.z_index || 1
       }}
     >
+      {/* Top-right Delete Button */}
+      {onDelete && !isLockedByOther && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="Delete card"
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            border: '1px solid #334155',
+            background: '#0f172a',
+            color: '#94a3b8',
+            fontSize: '11px',
+            lineHeight: '1',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            zIndex: 10
+          }}
+        >
+          ✕
+        </button>
+      )}
+
       {isLockedByOther && (
         <div style={{ fontSize: '10px', color: '#ff9100', marginBottom: '6px', fontWeight: '700' }}>
           ✎ {lockInfo.username} is moving...
@@ -141,7 +179,7 @@ export default function DraggableElement({
           onStackAudio={() => onStackAudio(element)}
         />
       ) : (
-        <div style={{ maxWidth: '220px' }}>
+        <div style={{ maxWidth: '220px', paddingRight: '18px' }}>
           <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: '700', marginBottom: '4px' }}>
             NOTE • {meta.author || 'Member'}
           </div>
