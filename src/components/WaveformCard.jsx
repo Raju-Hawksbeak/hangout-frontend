@@ -4,130 +4,184 @@ export default function WaveformCard({
   mediaUrl,
   peaks = [],
   duration = 0,
-  authorName = 'Friend',
+  authorName = 'Member',
   isStacked = false,
   onStackAudio
 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [audioError, setAudioError] = useState('');
   const audioRef = useRef(null);
 
-  useEffect(() => {
-    const audio = new Audio(mediaUrl);
-    audioRef.current = audio;
+  const safePeaks =
+    Array.isArray(peaks) && peaks.length > 0
+      ? peaks
+      : [0.3, 0.6, 0.9, 0.5, 0.8, 0.4, 0.7, 0.95, 0.6, 0.3, 0.5, 0.8, 0.4, 0.6, 0.3];
 
-    audio.ontimeupdate = () => {
-      if (audio.duration) {
-        setProgress((audio.currentTime / audio.duration) * 100);
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
-    audio.onended = () => {
-      setIsPlaying(false);
-      setProgress(0);
-    };
+  }, []);
 
-    return () => {
-      audio.pause();
-      audio.src = '';
-    };
-  }, [mediaUrl]);
-
-  const togglePlay = (e) => {
+  const togglePlay = async (e) => {
     e.stopPropagation();
-    const audio = audioRef.current;
-    if (!audio || !mediaUrl) return;
+    setAudioError('');
 
-    if (isPlaying) {
-      audio.pause();
+    if (!mediaUrl) {
+      setAudioError('No audio file attached to this card.');
+      return;
+    }
+
+    try {
+      if (!audioRef.current || audioRef.current.src !== mediaUrl) {
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        const audio = new Audio(mediaUrl);
+        audio.preload = 'auto';
+
+        audio.ontimeupdate = () => {
+          if (audio.duration && !isNaN(audio.duration)) {
+            setProgress(audio.currentTime / audio.duration);
+          }
+        };
+
+        audio.onended = () => {
+          setIsPlaying(false);
+          setProgress(0);
+        };
+
+        audio.onerror = () => {
+          setIsPlaying(false);
+          setAudioError('Audio file missing or unsupported format.');
+        };
+
+        audioRef.current = audio;
+      }
+
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } catch (err) {
       setIsPlaying(false);
-    } else {
-      audio.play().catch(() => setIsPlaying(false));
-      setIsPlaying(true);
+      setAudioError('Could not play audio. Try recording a fresh drop.');
     }
   };
 
-  const displayPeaks =
-    peaks && peaks.length > 0
-      ? peaks
-      : [25, 45, 70, 50, 85, 60, 40, 75, 90, 55, 35, 65, 80, 45, 30, 60, 75, 40, 55, 30];
+  const formatDuration = (sec) => {
+    const s = Math.max(1, Math.round(sec || 0));
+    return `${s}s`;
+  };
 
   return (
     <div style={{ width: '235px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-        <span style={{ fontSize: '10px', color: isStacked ? '#38bdf8' : '#00e676', fontWeight: 700, letterSpacing: '0.5px' }}>
-          {isStacked ? `↳ LAYER • ${authorName}` : `● VOICE DROP • ${authorName}`}
-        </span>
-        <span style={{ fontSize: '11px', color: '#94a3b8' }}>{duration || 5}s</span>
-      </div>
-
+      {/* Author & Duration Header */}
       <div
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={togglePlay}
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '2.5px',
-          height: '38px',
-          cursor: 'pointer',
-          padding: '4px 0'
+          justifyContent: 'space-between',
+          marginBottom: '8px',
+          paddingRight: '20px'
         }}
       >
-        {displayPeaks.map((p, idx) => {
-          const isBarPlayed = (idx / displayPeaks.length) * 100 <= progress;
-          return (
-            <div
-              key={idx}
-              style={{
-                flex: 1,
-                height: `${Math.max(14, p)}%`,
-                borderRadius: '2px',
-                background: isBarPlayed ? (isStacked ? '#38bdf8' : '#00e676') : '#475569',
-                transition: 'background 0.1s ease'
-              }}
-            />
-          );
-        })}
+        <span style={{ fontSize: '11px', fontWeight: '700', color: '#00e676' }}>
+          {isStacked ? '↳ ' : '🎙 '}
+          {authorName}
+        </span>
+        <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600' }}>
+          {formatDuration(duration)}
+        </span>
       </div>
 
-      <div
-        onPointerDown={(e) => e.stopPropagation()}
-        style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', alignItems: 'center' }}
-      >
+      {/* Play Button + Animated Waveform Bars */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
         <button
+          type="button"
           onClick={togglePlay}
           style={{
-            background: isPlaying ? '#ff1744' : isStacked ? '#38bdf8' : '#00e676',
+            background: isPlaying ? '#ff1744' : '#00e676',
+            color: isPlaying ? '#fff' : '#051b11',
             border: 'none',
-            color: '#051b11',
-            fontWeight: '800',
-            fontSize: '11px',
-            padding: '4px 12px',
             borderRadius: '999px',
-            cursor: 'pointer'
+            padding: '6px 12px',
+            fontSize: '11px',
+            fontWeight: '800',
+            cursor: 'pointer',
+            flexShrink: 0
           }}
         >
-          {isPlaying ? 'PAUSE' : 'PLAY'}
+          {isPlaying ? '⏸ PAUSE' : '▶ PLAY'}
         </button>
 
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '2px',
+            height: '28px',
+            flex: 1,
+            overflow: 'hidden'
+          }}
+        >
+          {safePeaks.slice(0, 24).map((val, idx) => {
+            const barRatio = idx / 24;
+            const isActive = isPlaying && barRatio <= progress;
+            const heightPx = Math.max(5, Math.min(28, Math.round((val || 0.2) * 28)));
+            return (
+              <span
+                key={idx}
+                style={{
+                  width: '3px',
+                  height: `${heightPx}px`,
+                  borderRadius: '2px',
+                  background: isActive ? '#00e676' : '#475569',
+                  transition: 'background 0.1s ease'
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Error Message if Audio Fails */}
+      {audioError && (
+        <div style={{ fontSize: '10px', color: '#f87171', marginBottom: '6px' }}>
+          {audioError}
+        </div>
+      )}
+
+      {/* Layer Sound Button */}
+      {onStackAudio && (
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
-            onStackAudio && onStackAudio();
+            onStackAudio();
           }}
           style={{
-            background: 'rgba(255,255,255,0.05)',
+            width: '100%',
+            background: 'rgba(15, 23, 42, 0.8)',
             border: '1px solid #334155',
             color: '#cbd5e1',
             fontSize: '11px',
             fontWeight: '600',
-            padding: '4px 10px',
-            borderRadius: '999px',
+            padding: '5px 8px',
+            borderRadius: '8px',
             cursor: 'pointer'
           }}
         >
           + Layer Sound
         </button>
-      </div>
+      )}
     </div>
   );
 }
