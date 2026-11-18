@@ -59,6 +59,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           setElements((prev) =>
             prev.some((el) => el.id === msg.element.id) ? prev : [...prev, msg.element]
           );
+        } else if (msg.type === 'ELEMENT_DELETED' && msg.element_id) {
+          setElements((prev) => prev.filter((el) => el.id !== msg.element_id));
         } else if (msg.type === 'ELEMENT_LOCKED') {
           setLocks((prev) => ({
             ...prev,
@@ -94,7 +96,71 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     };
   }, [canvasId]);
 
-  // 3. Start Voice Recording
+  // 3. Tidy Grid (Auto-Arrange overlapping cards cleanly)
+  const handleTidyGrid = () => {
+    if (elements.length === 0) return;
+
+    const cardWidth = 280;
+    const cardHeight = 145;
+    const marginX = 24;
+    const marginY = 82;
+    const cols = Math.max(1, Math.floor((window.innerWidth - marginX * 2) / cardWidth));
+
+    const arranged = elements.map((el, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      const newTransform = {
+        ...(el.transform_data || {}),
+        x: marginX + col * cardWidth,
+        y: marginY + row * cardHeight
+      };
+
+      // Broadcast updated position to other connected peers
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'ELEMENT_RELEASED',
+            canvas_id: canvasId,
+            element_id: el.id,
+            transform_data: newTransform
+          })
+        );
+      }
+
+      return { ...el, transform_data: newTransform };
+    });
+
+    setElements(arranged);
+    setStatusBanner('Canvas arranged into clean grid!');
+  };
+
+  // 4. Delete Element Handler
+  const handleDeleteElement = async (elementId) => {
+    setElements((prev) => prev.filter((el) => el.id !== elementId));
+
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: 'ELEMENT_DELETED',
+          canvas_id: canvasId,
+          element_id: elementId
+        })
+      );
+    }
+
+    try {
+      await fetch(`${API_BASE_URL}/canvases/elements/${elementId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+    } catch (err) {
+      console.error('Delete request failed:', err);
+    }
+  };
+
+  // 5. Start Voice Recording
   const startRecording = async () => {
     if (isRecording || isUploading) return;
     setStatusBanner('');
@@ -122,14 +188,14 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 4. Stop Voice Recording
+  // 6. Stop Voice Recording
   const stopRecording = () => {
     if (!isRecording || !mediaRecorderRef.current) return;
     mediaRecorderRef.current.stop();
     setIsRecording(false);
   };
 
-  // 5. Extract Peaks -> Upload via Backend -> Persist Element -> Broadcast
+  // 7. Extract Peaks -> Upload via Backend -> Persist Element -> Broadcast
   const handleAudioUploadAndDrop = async (audioBlob) => {
     setIsUploading(true);
     try {
@@ -185,15 +251,11 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         body: JSON.stringify(payload)
       });
 
-     // if (!saveRes.ok) throw new Error('Failed to save voice drop');
-     // const savedElement = await saveRes.json();
-       /* const saveData = await saveRes.json();
-        if (!saveRes.ok) throw new Error(saveData.detail || 'Failed to save voice drop');
-        const savedElement = saveData;*/
       const savedElement = await saveRes.json();
       if (!saveRes.ok) {
-        throw new Error(savedElement.detail || JSON.stringify(savedElement) ||'here');
+        throw new Error(savedElement.detail || JSON.stringify(savedElement) || 'Failed to save voice drop');
       }
+
       setElements((prev) =>
         prev.some((el) => el.id === savedElement.id) ? prev : [...prev, savedElement]
       );
@@ -215,7 +277,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       setIsUploading(false);
     }
   };
-  // 6. Drop a Quick Text Sticky Note
+
+  // 8. Drop a Quick Text Sticky Note
   const handleAddNote = async (e) => {
     e.preventDefault();
     if (!noteText.trim()) return;
@@ -290,6 +353,9 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button onClick={handleTidyGrid} style={{ ...styles.pillBtn, borderColor: '#38bdf8', color: '#38bdf8' }}>
+            Tidy Grid
+          </button>
           <button onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
             Invites ({inviteCodes.length})
           </button>
@@ -368,6 +434,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           socketRef={socketRef}
           currentUser={user}
           canvasId={canvasId}
+          onDelete={() => handleDeleteElement(el.id)}
           onStackAudio={(targetEl) => {
             setStackTarget(targetEl);
             setStatusBanner('Hold the Voice Drop button below to record your layered reply!');
