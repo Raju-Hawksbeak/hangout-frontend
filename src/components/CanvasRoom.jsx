@@ -16,9 +16,19 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Quick sticky note & invite drawer state
+  // Modals state (Sticky Note, Stage Clip, Polaroid Photo)
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteText, setNoteText] = useState('');
+
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [stageUrl, setStageUrl] = useState('');
+  const [stageTitle, setStageTitle] = useState('');
+  const [stageFile, setStageFile] = useState(null);
+
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoCaption, setPhotoCaption] = useState('');
+
   const [showInvites, setShowInvites] = useState(false);
   const [statusBanner, setStatusBanner] = useState('');
 
@@ -100,8 +110,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const handleTidyGrid = () => {
     if (elements.length === 0) return;
 
-    const cardWidth = 280;
-    const cardHeight = 145;
+    const cardWidth = 300;
+    const cardHeight = 230;
     const marginX = 24;
     const marginY = 82;
     const cols = Math.max(1, Math.floor((window.innerWidth - marginX * 2) / cardWidth));
@@ -159,6 +169,72 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
+  // Helper: Upload media file to backend S3 endpoint
+  const uploadFileToBackend = async (fileObj, fallbackName) => {
+    const formData = new FormData();
+    formData.append('file', fileObj, fileObj.name || fallbackName);
+
+    const uploadRes = await fetch(`${API_BASE_URL}/canvases/media/upload-direct`, {
+      method: 'POST',
+      body: formData
+    });
+
+    const uploadData = await uploadRes.json();
+    if (!uploadRes.ok) {
+      throw new Error(uploadData.detail || 'Media upload failed');
+    }
+    return uploadData.media_url;
+  };
+
+  // Helper: Persist any element & broadcast
+  const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
+    const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 320));
+    const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 300));
+
+    const payload = {
+      canvas_id: canvasId,
+      element_type: elementType,
+      media_url: mediaUrl,
+      media_meta: {
+        ...mediaMeta,
+        author: user.username
+      },
+      transform_data: {
+        x: randomX,
+        y: randomY,
+        scale: 1,
+        rotation: 0,
+        z_index: elements.length + 1
+      }
+    };
+
+    const res = await fetch(`${API_BASE_URL}/canvases/elements`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const saved = await res.json();
+    if (!res.ok) {
+      throw new Error(saved.detail || 'Failed to save element');
+    }
+
+    setElements((prev) => (prev.some((el) => el.id === saved.id) ? prev : [...prev, saved]));
+
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: 'NEW_ELEMENT',
+          canvas_id: canvasId,
+          element: saved
+        })
+      );
+    }
+  };
+
   // 5. Start Voice Recording
   const startRecording = async () => {
     if (isRecording || isUploading) return;
@@ -194,26 +270,12 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setIsRecording(false);
   };
 
-  // 7. Extract Peaks -> Upload via Backend -> Persist Element -> Broadcast
+  // 7. Extract Peaks -> Upload Audio -> Persist
   const handleAudioUploadAndDrop = async (audioBlob) => {
     setIsUploading(true);
     try {
       const { peaks, duration } = await extractWaveformPeaks(audioBlob, 30);
-
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'voice-drop.webm');
-
-      const uploadRes = await fetch(`${API_BASE_URL}/canvases/media/upload-direct`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) {
-        throw new Error(uploadData.detail || 'Audio storage upload failed');
-      }
-
-      const { media_url } = uploadData;
+      const media_url = await uploadFileToBackend(audioBlob, 'voice-drop.webm');
 
       const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 310));
       const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 280));
@@ -252,7 +314,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
       const savedElement = await saveRes.json();
       if (!saveRes.ok) {
-        throw new Error(savedElement.detail || JSON.stringify(savedElement) || 'Failed to save voice drop');
+        throw new Error(savedElement.detail || 'Failed to save voice drop');
       }
 
       setElements((prev) =>
@@ -281,54 +343,63 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const handleAddNote = async (e) => {
     e.preventDefault();
     if (!noteText.trim()) return;
-
     try {
-      const randomX = Math.floor(50 + Math.random() * Math.max(120, window.innerWidth - 280));
-      const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 250));
-
-      const payload = {
-        canvas_id: canvasId,
-        element_type: 'text',
-        media_url: null,
-        media_meta: {
-          text: noteText.trim(),
-          author: user.username
-        },
-        transform_data: {
-          x: randomX,
-          y: randomY,
-          scale: 1,
-          rotation: 0,
-          z_index: elements.length + 1
-        }
-      };
-
-      const res = await fetch(`${API_BASE_URL}/canvases/elements`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (res.ok) {
-        const saved = await res.json();
-        setElements((prev) => [...prev, saved]);
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
-          socketRef.current.send(
-            JSON.stringify({
-              type: 'NEW_ELEMENT',
-              canvas_id: canvasId,
-              element: saved
-            })
-          );
-        }
-        setNoteText('');
-        setShowNoteModal(false);
-      }
+      await persistCanvasElement('text', null, { text: noteText.trim() });
+      setNoteText('');
+      setShowNoteModal(false);
     } catch (err) {
       setStatusBanner('Could not post note.');
+    }
+  };
+
+  // 9. Drop a Stage Clip (YouTube Link OR Short Video File)
+  const handleAddStageClip = async (e) => {
+    e.preventDefault();
+    if (!stageUrl.trim() && !stageFile) return;
+
+    setIsUploading(true);
+    try {
+      let finalVideoUrl = stageUrl.trim();
+      if (stageFile) {
+        finalVideoUrl = await uploadFileToBackend(stageFile, 'stage-clip.mp4');
+      }
+
+      await persistCanvasElement('video', finalVideoUrl, {
+        title: stageTitle.trim() || 'Standup / Stage Set'
+      });
+
+      setStageUrl('');
+      setStageTitle('');
+      setStageFile(null);
+      setShowStageModal(false);
+      setStatusBanner('Stage Clip dropped onto canvas!');
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not drop Stage Clip.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // 10. Drop a Polaroid Photo
+  const handleAddPhoto = async (e) => {
+    e.preventDefault();
+    if (!photoFile) return;
+
+    setIsUploading(true);
+    try {
+      const uploadedPhotoUrl = await uploadFileToBackend(photoFile, 'polaroid.jpg');
+      await persistCanvasElement('photo', uploadedPhotoUrl, {
+        caption: photoCaption.trim() || 'Live Vibe'
+      });
+
+      setPhotoFile(null);
+      setPhotoCaption('');
+      setShowPhotoModal(false);
+      setStatusBanner('Polaroid Photo pinned to canvas!');
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not upload photo.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -420,7 +491,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             The Canvas is Quiet...
           </div>
           <div style={{ fontSize: '13px', color: '#64748b' }}>
-            Hold the green mic button below to drop the first voice wave, or add a sticky note!
+            Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note from the dock below!
           </div>
         </div>
       )}
@@ -444,15 +515,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       {/* Sticky Note Modal */}
       {showNoteModal && (
         <div style={styles.modalBackdrop} onClick={() => setShowNoteModal(false)}>
-          <form
-            onClick={(e) => e.stopPropagation()}
-            onSubmit={handleAddNote}
-            style={styles.noteModal}
-          >
-            <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '10px' }}>Drop a Sticky Note</div>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddNote} style={styles.noteModal}>
+            <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '10px', color: '#fff' }}>
+              Drop a Sticky Note
+            </div>
             <input
               type="text"
-              placeholder="Write a vibe, lyric, or thought..."
+              placeholder="Write a vibe, lyric, or punchline..."
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               maxLength={140}
@@ -471,10 +540,130 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
+      {/* Stage Clip Modal (YouTube Embed or Short Video Upload) */}
+      {showStageModal && (
+        <div style={styles.modalBackdrop} onClick={() => setShowStageModal(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddStageClip} style={styles.noteModal}>
+            <div style={{ fontWeight: '800', fontSize: '15px', marginBottom: '4px', color: '#fb7185' }}>
+              🎬 Drop a Stage Clip
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
+              Paste a YouTube / Shorts link OR upload a short clip (max 20 MB)
+            </div>
+
+            <input
+              type="text"
+              placeholder="Clip title (e.g., Sodepur Open Mic Bit)"
+              value={stageTitle}
+              onChange={(e) => setStageTitle(e.target.value)}
+              maxLength={80}
+              style={{ ...styles.noteInput, marginBottom: '10px' }}
+            />
+
+            <input
+              type="url"
+              placeholder="https://youtube.com/watch?v=... or youtu.be/..."
+              value={stageUrl}
+              onChange={(e) => {
+                setStageUrl(e.target.value);
+                if (e.target.value) setStageFile(null);
+              }}
+              style={{ ...styles.noteInput, marginBottom: '10px' }}
+            />
+
+            <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'center', marginBottom: '8px' }}>
+              — OR UPLOAD SHORT VIDEO —
+            </div>
+
+            <input
+              type="file"
+              accept="video/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setStageFile(file);
+                if (file) setStageUrl('');
+              }}
+              style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '12px', width: '100%' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={() => setShowStageModal(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUploading || (!stageUrl.trim() && !stageFile)}
+                style={{ ...styles.primaryMiniBtn, background: '#fb7185', color: '#fff' }}
+              >
+                {isUploading ? 'Dropping...' : 'Drop Clip'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Polaroid Photo Modal */}
+      {showPhotoModal && (
+        <div style={styles.modalBackdrop} onClick={() => setShowPhotoModal(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddPhoto} style={styles.noteModal}>
+            <div style={{ fontWeight: '800', fontSize: '15px', marginBottom: '4px', color: '#38bdf8' }}>
+              📸 Pin a Polaroid Photo
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
+              Share a raw backstage moment, gig snapshot, or doodle
+            </div>
+
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+              required
+              style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '10px', width: '100%' }}
+            />
+
+            <input
+              type="text"
+              placeholder="Write a short Polaroid caption..."
+              value={photoCaption}
+              onChange={(e) => setPhotoCaption(e.target.value)}
+              maxLength={60}
+              style={{ ...styles.noteInput, marginBottom: '12px' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={() => setShowPhotoModal(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUploading || !photoFile}
+                style={{ ...styles.primaryMiniBtn, background: '#38bdf8', color: '#082f49' }}
+              >
+                {isUploading ? 'Pinning...' : 'Pin Photo'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Bottom Floating Dock */}
       <div style={styles.bottomDock}>
         <button onClick={() => setShowNoteModal(true)} style={styles.noteBtn}>
           + Note
+        </button>
+
+        <button
+          onClick={() => setShowStageModal(true)}
+          style={{ ...styles.noteBtn, borderColor: '#fb7185', color: '#fda4af' }}
+        >
+          🎬 Stage
+        </button>
+
+        <button
+          onClick={() => setShowPhotoModal(true)}
+          style={{ ...styles.noteBtn, borderColor: '#38bdf8', color: '#7dd3fc' }}
+        >
+          📸 Photo
         </button>
 
         <button
@@ -490,12 +679,12 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           }}
         >
           {isUploading
-            ? 'Dropping Wave...'
+            ? 'Uploading...'
             : isRecording
-            ? '● Recording... Release to Drop'
+            ? '● Release to Drop'
             : stackTarget
-            ? '🎙 Hold to Layer Sound'
-            : '🎙 Hold to Voice Drop'}
+            ? '🎙 Layer Sound'
+            : '🎙 Voice Drop'}
         </button>
       </div>
     </div>
@@ -605,30 +794,33 @@ const styles = {
     transform: 'translateX(-50%)',
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
+    gap: '8px',
     background: 'rgba(19, 24, 34, 0.92)',
     backdropFilter: 'blur(14px)',
     padding: '8px 12px',
     borderRadius: '999px',
     border: '1px solid #2d3748',
     boxShadow: '0 14px 35px rgba(0,0,0,0.7)',
-    zIndex: 50
+    zIndex: 50,
+    maxWidth: '96vw',
+    overflowX: 'auto'
   },
   noteBtn: {
     background: '#1e293b',
     border: '1px solid #334155',
     color: '#f8fafc',
     fontWeight: '700',
-    fontSize: '13px',
-    padding: '12px 16px',
+    fontSize: '12px',
+    padding: '10px 13px',
     borderRadius: '999px',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
   },
   voiceBtn: {
     border: 'none',
     fontWeight: '800',
-    fontSize: '13px',
-    padding: '12px 22px',
+    fontSize: '12px',
+    padding: '10px 18px',
     borderRadius: '999px',
     cursor: 'pointer',
     userSelect: 'none',
@@ -647,7 +839,7 @@ const styles = {
   },
   noteModal: {
     width: '100%',
-    maxWidth: '340px',
+    maxWidth: '350px',
     background: '#131822',
     border: '1px solid #2d3748',
     borderRadius: '16px',
@@ -661,7 +853,8 @@ const styles = {
     background: '#0b0e14',
     color: '#fff',
     fontSize: '14px',
-    outline: 'none'
+    outline: 'none',
+    boxSizing: 'border-box'
   },
   primaryMiniBtn: {
     background: '#00e676',
