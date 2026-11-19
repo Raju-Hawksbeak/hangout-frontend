@@ -25,14 +25,18 @@ export default function DraggableElement({
   lockInfo,
   socketRef,
   currentUser,
+  token,
   canvasId,
+  threadReplies = [],
+  onPlayThread,
+  isPlayingThread = false,
   onStackAudio,
   onDelete,
   onOpenTip,
   onReact
 }) {
-  const initialPos = element.transform_data || { x: 60, y: 100 };
-  const [position, setPosition] = useState({ x: initialPos.x ?? 60, y: initialPos.y ?? 100 });
+  const initialPos = element.transform_data || { x: 60, y: 110 };
+  const [position, setPosition] = useState({ x: initialPos.x ?? 60, y: initialPos.y ?? 110 });
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const latestPosRef = useRef(position);
@@ -106,7 +110,7 @@ export default function DraggableElement({
     });
   };
 
-  const handlePointerUp = () => {
+  const handlePointerUp = async () => {
     if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
 
@@ -126,6 +130,22 @@ export default function DraggableElement({
       user_id: currentUser.id,
       transform_data: finalTransform
     });
+
+    // Persist final position in PostgreSQL database
+    if (token) {
+      try {
+        await fetch(`${API_BASE_URL}/canvases/elements/${element.id}/transform`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ transform_data: finalTransform })
+        });
+      } catch (err) {
+        console.error('Failed to persist position:', err);
+      }
+    }
   };
 
   const meta = element.media_meta || {};
@@ -134,6 +154,7 @@ export default function DraggableElement({
   const finalMediaUrl = resolveMediaUrl(element.media_url);
   const hasTipHandle = Boolean(meta.tip_handle);
   const isPhoto = element.element_type === 'photo';
+  const isStacked = Boolean(element.transform_data?.is_stacked || element.parent_element_id);
 
   return (
     <div
@@ -151,18 +172,20 @@ export default function DraggableElement({
           ? '1px solid #f43f5e'
           : isPhoto
           ? '1px solid #e2e8f0'
-          : element.transform_data?.is_stacked
-          ? '1px solid #0284c7'
+          : isStacked
+          ? '1.5px solid #38bdf8'
           : '1px solid #263042',
         boxShadow: isLockedByOther
           ? '0 0 16px rgba(255, 145, 0, 0.35)'
+          : isStacked
+          ? '0 10px 26px rgba(56, 189, 248, 0.22)'
           : '0 10px 28px rgba(0, 0, 0, 0.55)',
         borderRadius: isPhoto ? '12px' : '16px',
         padding: isPhoto ? '10px 10px 12px 10px' : '12px 14px',
-        background: isPhoto ? '#f8fafc' : 'rgba(22, 28, 38, 0.94)',
+        background: isPhoto ? '#f8fafc' : 'rgba(22, 28, 38, 0.95)',
         backdropFilter: 'blur(10px)',
         userSelect: 'none',
-        zIndex: element.transform_data?.z_index || 1
+        zIndex: element.transform_data?.z_index || (isStacked ? 5 : 1)
       }}
     >
       {/* Top-right Delete Button */}
@@ -203,16 +226,62 @@ export default function DraggableElement({
         </div>
       )}
 
+      {/* Threaded Reply Connector Badge */}
+      {isStacked && (
+        <div
+          style={{
+            fontSize: '10px',
+            color: '#38bdf8',
+            fontWeight: '800',
+            marginBottom: '6px',
+            paddingRight: '22px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          <span>↳ Voice Layer on @{meta.reply_to_author || 'Original'}</span>
+        </div>
+      )}
+
       {/* 1. Audio Waveform Card */}
       {element.element_type === 'audio' && (
-        <WaveformCard
-          mediaUrl={element.media_url}
-          peaks={meta.peaks}
-          duration={meta.duration}
-          authorName={meta.author || 'Member'}
-          isStacked={Boolean(element.transform_data?.is_stacked)}
-          onStackAudio={() => onStackAudio(element)}
-        />
+        <>
+          <WaveformCard
+            mediaUrl={element.media_url}
+            peaks={meta.peaks}
+            duration={meta.duration}
+            authorName={meta.author || 'Member'}
+            isStacked={isStacked}
+            onStackAudio={() => onStackAudio(element)}
+          />
+
+          {threadReplies.length > 0 && onPlayThread && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPlayThread(element, threadReplies);
+              }}
+              style={{
+                marginTop: '8px',
+                width: '100%',
+                background: isPlayingThread ? '#ef4444' : 'rgba(56, 189, 248, 0.16)',
+                border: '1px solid #38bdf8',
+                color: isPlayingThread ? '#fff' : '#7dd3fc',
+                fontSize: '11px',
+                fontWeight: '800',
+                padding: '5px 10px',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              {isPlayingThread
+                ? '⏹ Stop Thread Chain'
+                : `▶ Play Thread (${threadReplies.length + 1} clips)`}
+            </button>
+          )}
+        </>
       )}
 
       {/* 2. Stage Clip */}
