@@ -3,6 +3,23 @@ import { API_BASE_URL, WS_BASE_URL, DEFAULT_CANVAS_ID } from '../config';
 import { extractWaveformPeaks } from '../audioUtils';
 import DraggableElement from './DraggableElement';
 
+const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
+const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
+
+function isValidTipHandle(value) {
+  if (!value) return true;
+  if (UPI_PATTERN.test(value)) return true;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol === 'https:' && TRUSTED_TIP_HOSTS.some((h) => parsed.hostname.endsWith(h))) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) {
   const [canvasId, setCanvasId] = useState(DEFAULT_CANVAS_ID);
   const [elements, setElements] = useState([]);
@@ -34,6 +51,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [myTipHandle, setMyTipHandle] = useState(() => localStorage.getItem(storageKey) || '');
   const [showTipSetup, setShowTipSetup] = useState(false);
   const [tipInput, setTipInput] = useState(myTipHandle);
+  const [tipError, setTipError] = useState('');
   const [activeTipTarget, setActiveTipTarget] = useState(null);
   const [tipAmount, setTipAmount] = useState('50');
 
@@ -79,8 +97,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           );
         } else if (msg.type === 'ELEMENT_DELETED' && msg.element_id) {
           setElements((prev) => prev.filter((el) => el.id !== msg.element_id));
-        } else if (msg.type === 'CREATOR_TIPPED') {
-          setStatusBanner(`🎉 ${msg.from} sent a ₹${msg.amount} tip to @${msg.to}!`);
+        } else if (msg.type === 'CREATOR_TIP_CHEER') {
+          setStatusBanner(`👏 ${msg.from} opened a ₹${msg.amount} tip cheer for @${msg.to}!`);
         } else if (msg.type === 'ELEMENT_LOCKED') {
           setLocks((prev) => ({
             ...prev,
@@ -116,10 +134,17 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     };
   }, [canvasId]);
 
-  // Save Creator UPI ID / Payment Link locally
+  // Save Creator UPI ID / Trusted Payment Link with strict validation
   const handleSaveTipSetup = (e) => {
     e.preventDefault();
+    setTipError('');
     const cleaned = tipInput.trim();
+
+    if (cleaned && !isValidTipHandle(cleaned)) {
+      setTipError('Enter a valid UPI ID (e.g., name@okicici) or https://razorpay.me / buymeacoffee.com link.');
+      return;
+    }
+
     setMyTipHandle(cleaned);
     localStorage.setItem(storageKey, cleaned);
     setShowTipSetup(false);
@@ -130,14 +155,20 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     );
   };
 
-  // Trigger UPI Intent or Global Link + Broadcast Cheer
+  // Trigger UPI Intent or Trusted Link + Honest Cheer Broadcast
   const handleSendTip = () => {
     if (!activeTipTarget) return;
     const handle = activeTipTarget.media_meta?.tip_handle || '';
     const author = activeTipTarget.media_meta?.author || 'Creator';
-    const amt = Math.max(1, Number(tipAmount) || 50);
+    const amt = Math.max(1, Math.min(100000, Number(tipAmount) || 50));
 
-    if (handle.startsWith('http://') || handle.startsWith('https://')) {
+    if (!isValidTipHandle(handle)) {
+      setStatusBanner('Invalid creator payment handle.');
+      setActiveTipTarget(null);
+      return;
+    }
+
+    if (handle.startsWith('https://')) {
       window.open(handle, '_blank', 'noopener,noreferrer');
     } else if (handle.includes('@')) {
       const upiUrl = `upi://pay?pa=${encodeURIComponent(handle)}&pn=${encodeURIComponent(
@@ -145,14 +176,12 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       )}&am=${amt}&cu=INR&tn=${encodeURIComponent('Hangout Creator Tip')}`;
       navigator.clipboard?.writeText(handle);
       window.location.href = upiUrl;
-    } else {
-      navigator.clipboard?.writeText(handle);
     }
 
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(
         JSON.stringify({
-          type: 'CREATOR_TIPPED',
+          type: 'CREATOR_TIP_CHEER',
           canvas_id: canvasId,
           from: user.username,
           to: author,
@@ -161,7 +190,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       );
     }
 
-    setStatusBanner(`💸 Tipping ₹${amt} to @${author} (UPI ID copied: ${handle})`);
+    setStatusBanner(`💸 Complete ₹${amt} payment in your UPI app (Copied: ${handle})`);
     setActiveTipTarget(null);
   };
 
@@ -202,29 +231,35 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setStatusBanner('Canvas arranged into clean grid!');
   };
 
-  // 4. Delete Element Handler
+  // 4. Delete Element Handler (Ownership Verified on Backend)
   const handleDeleteElement = async (elementId) => {
-    setElements((prev) => prev.filter((el) => el.id !== elementId));
-
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(
-        JSON.stringify({
-          type: 'ELEMENT_DELETED',
-          canvas_id: canvasId,
-          element_id: elementId
-        })
-      );
-    }
-
     try {
-      await fetch(`${API_BASE_URL}/canvases/elements/${elementId}`, {
+      const res = await fetch(`${API_BASE_URL}/canvases/elements/${elementId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setStatusBanner(errData.detail || 'You can only delete your own cards.');
+        return;
+      }
+
+      setElements((prev) => prev.filter((el) => el.id !== elementId));
+
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'ELEMENT_DELETED',
+            canvas_id: canvasId,
+            element_id: elementId
+          })
+        );
+      }
     } catch (err) {
-      console.error('Delete request failed:', err);
+      setStatusBanner('Delete request failed.');
     }
   };
 
@@ -245,7 +280,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     return uploadData.media_url;
   };
 
-  // Helper: Persist any element & broadcast (attaches creator tip_handle automatically)
+  // Helper: Persist any element & broadcast
   const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
     const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 320));
     const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 300));
@@ -409,7 +444,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       setNoteText('');
       setShowNoteModal(false);
     } catch (err) {
-      setStatusBanner('Could not post note.');
+      setStatusBanner(err.message || 'Could not post note.');
     }
   };
 
@@ -487,6 +522,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           <button
             onClick={() => {
               setTipInput(myTipHandle);
+              setTipError('');
               setShowTipSetup(true);
             }}
             style={{
@@ -595,16 +631,19 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               💸 Creator Tip Jar Setup (0% Fee)
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
-              Enter your UPI ID (e.g., <b>name@okicici</b>) or payment link. Fans can tip you directly from your cards!
+              Enter your verified UPI ID (e.g., <b>name@okicici</b>) or trusted tip link.
             </div>
             <input
               type="text"
-              placeholder="yourname@upi or https://..."
+              placeholder="yourname@upi"
               value={tipInput}
               onChange={(e) => setTipInput(e.target.value)}
               autoFocus
               style={styles.noteInput}
             />
+            {tipError && (
+              <div style={{ fontSize: '11px', color: '#f87171', marginTop: '6px' }}>{tipError}</div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
               <button type="button" onClick={() => setShowTipSetup(false)} style={styles.pillBtn}>
                 Cancel
@@ -628,7 +667,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               💸 Tip @{activeTipTarget.media_meta?.author || 'Creator'}
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
-              100% goes directly to <b>{activeTipTarget.media_meta?.tip_handle}</b>
+              Direct P2P to <b>{activeTipTarget.media_meta?.tip_handle}</b> (Verify recipient name in your UPI app)
             </div>
 
             <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
@@ -657,6 +696,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             <input
               type="number"
               min="1"
+              max="100000"
               placeholder="Custom amount (INR)"
               value={tipAmount}
               onChange={(e) => setTipAmount(e.target.value)}
@@ -707,7 +747,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
-      {/* Stage Clip Modal (YouTube Embed or Short Video Upload) */}
+      {/* Stage Clip Modal */}
       {showStageModal && (
         <div style={styles.modalBackdrop} onClick={() => setShowStageModal(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddStageClip} style={styles.noteModal}>
