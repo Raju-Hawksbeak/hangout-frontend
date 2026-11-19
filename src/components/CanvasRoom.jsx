@@ -9,7 +9,7 @@ const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'payp
 const ROOMS = [
   {
     id: DEFAULT_CANVAS_ID,
-    label: 'Live Jam',
+    label: 'Thek Main',
     icon: '⚡',
     accent: '#00e676',
     dotColor: '#1e293b',
@@ -59,11 +59,24 @@ function isValidTipHandle(value) {
   return false;
 }
 
+function resolveStreamUrl(url) {
+  if (!url) return '';
+  if (url.includes('/canvases/media/stream/')) {
+    const filePart = url.split('/canvases/media/stream/')[1];
+    return `${API_BASE_URL}/canvases/media/stream/${filePart}`;
+  }
+  return url;
+}
+
 export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) {
   const [canvasId, setCanvasId] = useState(DEFAULT_CANVAS_ID);
   const [elements, setElements] = useState([]);
   const [locks, setLocks] = useState({});
   const [wsConnected, setWsConnected] = useState(false);
+
+  // Live Room Presence state
+  const [onlineCount, setOnlineCount] = useState(1);
+  const [onlineUsers, setOnlineUsers] = useState([user.username]);
 
   const activeRoom = ROOMS.find((r) => r.id === canvasId) || ROOMS[0];
 
@@ -73,6 +86,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [stackTarget, setStackTarget] = useState(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+
+  // Sequential Thread Audio Player state
+  const [playingThreadId, setPlayingThreadId] = useState(null);
+  const threadAudioRef = useRef(null);
+
+  // PWA Install Prompt state
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
 
   // Modals state
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -101,6 +121,25 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   const socketRef = useRef(null);
 
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallPwa = async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredInstallPrompt(null);
+      setStatusBanner('📲 Thek installed to your home screen!');
+    }
+  };
+
   const loadElements = async (targetCanvasId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/canvases/${targetCanvasId}/elements`);
@@ -117,12 +156,17 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   };
 
   useEffect(() => {
+    stopThreadPlayback();
     setElements([]);
     setLocks({});
     setStackTarget(null);
+    setOnlineCount(1);
+    setOnlineUsers([user.username]);
     loadElements(canvasId);
 
-    const ws = new WebSocket(`${WS_BASE_URL}/canvases/ws/${canvasId}`);
+    const ws = new WebSocket(
+      `${WS_BASE_URL}/canvases/ws/${canvasId}?username=${encodeURIComponent(user.username)}`
+    );
     socketRef.current = ws;
 
     ws.onopen = () => setWsConnected(true);
@@ -133,7 +177,10 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         const msg = JSON.parse(event.data);
         if (msg.canvas_id && msg.canvas_id !== canvasId) return;
 
-        if (msg.type === 'NEW_ELEMENT' && msg.element) {
+        if (msg.type === 'ROOM_PRESENCE') {
+          setOnlineCount(msg.online_count || 1);
+          setOnlineUsers(msg.online_users || [user.username]);
+        } else if (msg.type === 'NEW_ELEMENT' && msg.element) {
           setElements((prev) =>
             prev.some((el) => el.id === msg.element.id) ? prev : [...prev, msg.element]
           );
@@ -188,7 +235,56 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     };
   }, [canvasId]);
 
-  // React with Emoji on any card (Optimistic UI + Backend Sync)
+  const stopThreadPlayback = () => {
+    if (threadAudioRef.current) {
+      threadAudioRef.current.pause();
+      threadAudioRef.current = null;
+    }
+    setPlayingThreadId(null);
+  };
+
+  const handlePlayThread = (parentEl, replies) => {
+    if (playingThreadId === parentEl.id) {
+      stopThreadPlayback();
+      return;
+    }
+    stopThreadPlayback();
+
+    const queue = [parentEl, ...replies].filter((item) => item.media_url);
+    if (queue.length === 0) return;
+
+    setPlayingThreadId(parentEl.id);
+    let idx = 0;
+
+    const playNext = () => {
+      if (idx >= queue.length) {
+        setPlayingThreadId(null);
+        threadAudioRef.current = null;
+        return;
+      }
+      const currentClip = queue[idx];
+      setStatusBanner(
+        `🎧 Playing thread (${idx + 1}/${queue.length}): @${currentClip.media_meta?.author || 'Member'}`
+      );
+      const audio = new Audio(resolveStreamUrl(currentClip.media_url));
+      threadAudioRef.current = audio;
+
+      audio.onended = () => {
+        idx += 1;
+        playNext();
+      };
+      audio.onerror = () => {
+        idx += 1;
+        playNext();
+      };
+      audio.play().catch(() => {
+        setPlayingThreadId(null);
+      });
+    };
+
+    playNext();
+  };
+
   const handleReactElement = async (elementId, emoji) => {
     setElements((prev) =>
       prev.map((el) => {
@@ -231,11 +327,10 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // Copy One-Click Shareable Invite Link
   const handleCopyInviteLink = (code) => {
     const shareUrl = `${window.location.origin}/?invite=${encodeURIComponent(code)}`;
     navigator.clipboard?.writeText(shareUrl);
-    setStatusBanner(`🔗 Copied invite link for ${code}! Send it to your friend.`);
+    setStatusBanner(`🔗 Copied Thek invite link for ${code}!`);
   };
 
   const handleSaveTipSetup = (e) => {
@@ -275,7 +370,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     } else if (handle.includes('@')) {
       const upiUrl = `upi://pay?pa=${encodeURIComponent(handle)}&pn=${encodeURIComponent(
         author
-      )}&am=${amt}&cu=INR&tn=${encodeURIComponent('Hangout Creator Tip')}`;
+      )}&am=${amt}&cu=INR&tn=${encodeURIComponent('Thek Creator Tip')}`;
       navigator.clipboard?.writeText(handle);
       window.location.href = upiUrl;
     }
@@ -296,7 +391,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setActiveTipTarget(null);
   };
 
-  const handleTidyGrid = () => {
+  // Tidy Grid + Persist all arranged positions to Database
+  const handleTidyGrid = async () => {
     if (elements.length === 0) return;
 
     const cardWidth = 300;
@@ -329,7 +425,21 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     });
 
     setElements(arranged);
-    setStatusBanner('Canvas arranged into clean grid!');
+    setStatusBanner('Grid arranged & saved permanently!');
+
+    // Save updated coordinates to backend
+    Promise.all(
+      arranged.map((item) =>
+        fetch(`${API_BASE_URL}/canvases/elements/${item.id}/transform`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ transform_data: item.transform_data })
+        }).catch(() => null)
+      )
+    );
   };
 
   const handleDeleteElement = async (elementId) => {
@@ -468,8 +578,16 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       const { peaks, duration } = await extractWaveformPeaks(audioBlob, 30);
       const media_url = await uploadFileToBackend(audioBlob, 'voice-drop.webm');
 
-      const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 310));
-      const randomY = Math.floor(115 + Math.random() * Math.max(160, window.innerHeight - 300));
+      let dropX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 310));
+      let dropY = Math.floor(115 + Math.random() * Math.max(160, window.innerHeight - 300));
+
+      if (stackTarget) {
+        const existingReplies = elements.filter((el) => el.parent_element_id === stackTarget.id);
+        const parentX = stackTarget.transform_data?.x ?? 60;
+        const parentY = stackTarget.transform_data?.y ?? 120;
+        dropX = Math.min(window.innerWidth - 280, parentX + 18);
+        dropY = parentY + 135 * (existingReplies.length + 1);
+      }
 
       const payload = {
         canvas_id: canvasId,
@@ -480,14 +598,16 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           duration,
           author: user.username,
           tip_handle: myTipHandle || null,
+          reply_to_author: stackTarget ? stackTarget.media_meta?.author || 'Member' : null,
           reactions: {}
         },
         transform_data: {
-          x: randomX,
-          y: randomY,
+          x: dropX,
+          y: dropY,
           scale: 1,
           rotation: 0,
-          z_index: elements.length + 1
+          z_index: elements.length + 5,
+          is_stacked: Boolean(stackTarget)
         },
         parent_element_id: stackTarget ? stackTarget.id : null
       };
@@ -524,6 +644,9 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         );
       }
 
+      if (stackTarget) {
+        setStatusBanner(`↳ Layered reply snapped under @${stackTarget.media_meta?.author || 'Member'}!`);
+      }
       setStackTarget(null);
     } catch (err) {
       setStatusBanner(err.message || 'Upload failed.');
@@ -563,7 +686,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       setStageTitle('');
       setStageFile(null);
       setShowStageModal(false);
-      setStatusBanner('Stage Clip dropped onto canvas!');
+      setStatusBanner('Stage Clip dropped onto Thek!');
     } catch (err) {
       setStatusBanner(err.message || 'Could not drop Stage Clip.');
     } finally {
@@ -585,7 +708,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       setPhotoFile(null);
       setPhotoCaption('');
       setShowPhotoModal(false);
-      setStatusBanner('Polaroid Photo pinned to canvas!');
+      setStatusBanner('Polaroid Photo pinned to Thek!');
     } catch (err) {
       setStatusBanner(err.message || 'Could not upload photo.');
     } finally {
@@ -613,14 +736,36 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             }}
           />
           <div>
-            <div style={{ fontWeight: '800', fontSize: '13px', color: '#fff' }}>
-              {activeRoom.icon} {activeRoom.label}
+            <div style={{ fontWeight: '900', fontSize: '14px', color: '#fff', letterSpacing: '-0.3px' }}>
+              Thek{' '}
+              <span
+                onClick={() => setStatusBanner(`🟢 Online in ${activeRoom.label}: ${onlineUsers.join(', ')}`)}
+                style={{
+                  fontWeight: '700',
+                  fontSize: '10px',
+                  color: activeRoom.accent,
+                  background: 'rgba(255,255,255,0.08)',
+                  padding: '2px 7px',
+                  borderRadius: '999px',
+                  cursor: 'pointer'
+                }}
+              >
+                {onlineCount} live
+              </span>
             </div>
             <div style={{ fontSize: '10px', color: '#94a3b8' }}>@{user.username}</div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+          {deferredInstallPrompt && (
+            <button
+              onClick={handleInstallPwa}
+              style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#00e676' }}
+            >
+              📲 Install
+            </button>
+          )}
           <button
             onClick={() => {
               setTipInput(myTipHandle);
@@ -676,7 +821,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       {showInvites && (
         <div style={styles.inviteDrawer}>
           <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '4px', color: '#00e676' }}>
-            Tap a code to copy One-Click Invite Link:
+            Tap a code to copy Thek Invite Link:
           </div>
           <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '8px' }}>
             Auto-fills invite code when your friend opens the link!
@@ -711,7 +856,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       {/* Stacking Indicator */}
       {stackTarget && (
         <div style={styles.stackBanner}>
-          <span>Layering sound under <b>{stackTarget.media_meta?.author || 'Voice Drop'}</b></span>
+          <span>↳ Layering reply directly under <b>@{stackTarget.media_meta?.author || 'Voice Drop'}</b></span>
           <button
             onClick={() => setStackTarget(null)}
             style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
@@ -731,23 +876,37 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
-      {elements.map((el) => (
-        <DraggableElement
-          key={el.id}
-          element={el}
-          lockInfo={locks[el.id]}
-          socketRef={socketRef}
-          currentUser={user}
-          canvasId={canvasId}
-          onDelete={() => handleDeleteElement(el.id)}
-          onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
-          onReact={handleReactElement}
-          onStackAudio={(targetEl) => {
-            setStackTarget(targetEl);
-            setStatusBanner('Hold the Voice Drop button below to record your layered reply!');
-          }}
-        />
-      ))}
+      {elements.map((el) => {
+        const replies =
+          el.element_type === 'audio' && !el.parent_element_id
+            ? elements.filter((child) => child.parent_element_id === el.id)
+            : [];
+
+        return (
+          <DraggableElement
+            key={el.id}
+            element={el}
+            lockInfo={locks[el.id]}
+            socketRef={socketRef}
+            currentUser={user}
+            token={token}
+            canvasId={canvasId}
+            threadReplies={replies}
+            isPlayingThread={playingThreadId === el.id}
+            onPlayThread={handlePlayThread}
+            onDelete={() => handleDeleteElement(el.id)}
+            onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
+            onReact={handleReactElement}
+            onStackAudio={(targetEl) => {
+              const rootParent = targetEl.parent_element_id
+                ? elements.find((p) => p.id === targetEl.parent_element_id) || targetEl
+                : targetEl;
+              setStackTarget(rootParent);
+              setStatusBanner(`Hold "Layer Sound" below to snap your reply under @${rootParent.media_meta?.author || 'Member'}!`);
+            }}
+          />
+        );
+      })}
 
       {/* Creator Tip Setup Modal */}
       {showTipSetup && (
@@ -1016,7 +1175,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             : isRecording
             ? '● Release to Drop'
             : stackTarget
-            ? '🎙 Layer Sound'
+            ? '↳ Layer Sound'
             : '🎙 Voice Drop'}
         </button>
       </div>
@@ -1082,7 +1241,7 @@ const styles = {
     color: '#e2e8f0',
     fontSize: '11px',
     fontWeight: '600',
-    padding: '6px 10px',
+    padding: '6px 9px',
     borderRadius: '999px',
     cursor: 'pointer',
     whiteSpace: 'nowrap'
