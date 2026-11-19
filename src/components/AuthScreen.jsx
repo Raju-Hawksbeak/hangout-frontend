@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
 
 export default function AuthScreen({ onAuthSuccess }) {
@@ -9,6 +9,16 @@ export default function AuthScreen({ onAuthSuccess }) {
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Auto-fill invite code and switch to Invite Sign Up tab if ?invite=HANG-XXXXXX is in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlInvite = params.get('invite');
+    if (urlInvite) {
+      setInviteCode(urlInvite.trim().toUpperCase());
+      setIsSignup(true);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,10 +42,15 @@ export default function AuthScreen({ onAuthSuccess }) {
         throw new Error(data.detail || 'Authentication failed');
       }
 
+      // Clean ?invite= param from URL after successful authentication
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       onAuthSuccess({
-        token: data.access_token,
+        token: data.token || data.access_token,
         user: data.user,
-        inviteCodes: data.new_invite_codes || []
+        inviteCodes: data.invites || data.new_invite_codes || []
       });
     } catch (err) {
       setError(err.message || 'Server wake-up in progress. Please try again in 5 seconds.');
@@ -86,8 +101,8 @@ export default function AuthScreen({ onAuthSuccess }) {
           )}
 
           <input
-            type="email"
-            placeholder="Email address"
+            type={isSignup ? 'email' : 'text'}
+            placeholder={isSignup ? 'Email address' : 'Email or Username'}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
