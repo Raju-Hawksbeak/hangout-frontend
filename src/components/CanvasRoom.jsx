@@ -74,7 +74,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Modals state (Sticky Note, Stage Clip, Polaroid Photo)
+  // Modals state
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [noteText, setNoteText] = useState('');
 
@@ -101,7 +101,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   const socketRef = useRef(null);
 
-  // 1. Fetch existing elements for the active room
   const loadElements = async (targetCanvasId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/canvases/${targetCanvasId}/elements`);
@@ -117,7 +116,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 2. Connect real-time WebSocket hub per room
   useEffect(() => {
     setElements([]);
     setLocks({});
@@ -133,8 +131,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
-
-        // Ignore broadcasts belonging to other rooms
         if (msg.canvas_id && msg.canvas_id !== canvasId) return;
 
         if (msg.type === 'NEW_ELEMENT' && msg.element) {
@@ -144,6 +140,14 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         } else if (msg.type === 'NEW_AUDIO_LAYER' && msg.element) {
           setElements((prev) =>
             prev.some((el) => el.id === msg.element.id) ? prev : [...prev, msg.element]
+          );
+        } else if (msg.type === 'ELEMENT_REACTED' && msg.element_id) {
+          setElements((prev) =>
+            prev.map((el) =>
+              el.id === msg.element_id
+                ? { ...el, media_meta: { ...(el.media_meta || {}), reactions: msg.reactions } }
+                : el
+            )
           );
         } else if (msg.type === 'ELEMENT_DELETED' && msg.element_id) {
           setElements((prev) => prev.filter((el) => el.id !== msg.element_id));
@@ -184,7 +188,56 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     };
   }, [canvasId]);
 
-  // Save Creator UPI ID / Trusted Payment Link
+  // React with Emoji on any card (Optimistic UI + Backend Sync)
+  const handleReactElement = async (elementId, emoji) => {
+    setElements((prev) =>
+      prev.map((el) => {
+        if (el.id !== elementId) return el;
+        const currentReactions = el.media_meta?.reactions || {};
+        return {
+          ...el,
+          media_meta: {
+            ...(el.media_meta || {}),
+            reactions: {
+              ...currentReactions,
+              [emoji]: (currentReactions[emoji] || 0) + 1
+            }
+          }
+        };
+      })
+    );
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/canvases/elements/${elementId}/react`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ emoji })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setElements((prev) =>
+          prev.map((el) =>
+            el.id === elementId
+              ? { ...el, media_meta: { ...(el.media_meta || {}), reactions: data.reactions } }
+              : el
+          )
+        );
+      }
+    } catch (err) {
+      console.error('Reaction error:', err);
+    }
+  };
+
+  // Copy One-Click Shareable Invite Link
+  const handleCopyInviteLink = (code) => {
+    const shareUrl = `${window.location.origin}/?invite=${encodeURIComponent(code)}`;
+    navigator.clipboard?.writeText(shareUrl);
+    setStatusBanner(`🔗 Copied invite link for ${code}! Send it to your friend.`);
+  };
+
   const handleSaveTipSetup = (e) => {
     e.preventDefault();
     setTipError('');
@@ -205,7 +258,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     );
   };
 
-  // Trigger UPI Intent or Trusted Link + Honest Cheer Broadcast
   const handleSendTip = () => {
     if (!activeTipTarget) return;
     const handle = activeTipTarget.media_meta?.tip_handle || '';
@@ -244,12 +296,11 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setActiveTipTarget(null);
   };
 
-  // 3. Tidy Grid (Auto-Arrange overlapping cards cleanly)
   const handleTidyGrid = () => {
     if (elements.length === 0) return;
 
     const cardWidth = 300;
-    const cardHeight = 250;
+    const cardHeight = 265;
     const marginX = 24;
     const marginY = 114;
     const cols = Math.max(1, Math.floor((window.innerWidth - marginX * 2) / cardWidth));
@@ -281,7 +332,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setStatusBanner('Canvas arranged into clean grid!');
   };
 
-  // 4. Delete Element Handler (Ownership Verified on Backend)
   const handleDeleteElement = async (elementId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/canvases/elements/${elementId}`, {
@@ -313,7 +363,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // Helper: Upload media file to backend S3 endpoint
   const uploadFileToBackend = async (fileObj, fallbackName) => {
     const formData = new FormData();
     formData.append('file', fileObj, fileObj.name || fallbackName);
@@ -330,7 +379,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     return uploadData.media_url;
   };
 
-  // Helper: Persist any element & broadcast
   const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
     const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 320));
     const randomY = Math.floor(115 + Math.random() * Math.max(160, window.innerHeight - 320));
@@ -342,7 +390,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       media_meta: {
         ...mediaMeta,
         author: user.username,
-        tip_handle: myTipHandle || null
+        tip_handle: myTipHandle || null,
+        reactions: {}
       },
       transform_data: {
         x: randomX,
@@ -380,7 +429,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 5. Start Voice Recording
   const startRecording = async () => {
     if (isRecording || isUploading) return;
     setStatusBanner('');
@@ -408,14 +456,12 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 6. Stop Voice Recording
   const stopRecording = () => {
     if (!isRecording || !mediaRecorderRef.current) return;
     mediaRecorderRef.current.stop();
     setIsRecording(false);
   };
 
-  // 7. Extract Peaks -> Upload Audio -> Persist
   const handleAudioUploadAndDrop = async (audioBlob) => {
     setIsUploading(true);
     try {
@@ -433,7 +479,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           peaks,
           duration,
           author: user.username,
-          tip_handle: myTipHandle || null
+          tip_handle: myTipHandle || null,
+          reactions: {}
         },
         transform_data: {
           x: randomX,
@@ -485,7 +532,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 8. Drop a Quick Text Sticky Note
   const handleAddNote = async (e) => {
     e.preventDefault();
     if (!noteText.trim()) return;
@@ -498,7 +544,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 9. Drop a Stage Clip
   const handleAddStageClip = async (e) => {
     e.preventDefault();
     if (!stageUrl.trim() && !stageFile) return;
@@ -526,7 +571,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 10. Drop a Polaroid Photo
   const handleAddPhoto = async (e) => {
     e.preventDefault();
     if (!photoFile) return;
@@ -628,24 +672,24 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         })}
       </nav>
 
-      {/* Invite Codes Drawer */}
+      {/* One-Click Invite Link Drawer */}
       {showInvites && (
         <div style={styles.inviteDrawer}>
-          <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#00e676' }}>
-            Your Exclusive Friend Invite Codes:
+          <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '4px', color: '#00e676' }}>
+            Tap a code to copy One-Click Invite Link:
+          </div>
+          <div style={{ fontSize: '10px', color: '#94a3b8', marginBottom: '8px' }}>
+            Auto-fills invite code when your friend opens the link!
           </div>
           {inviteCodes.length > 0 ? (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {inviteCodes.map((code) => (
                 <span
                   key={code}
-                  onClick={() => {
-                    navigator.clipboard?.writeText(code);
-                    setStatusBanner(`Copied invite code: ${code}`);
-                  }}
+                  onClick={() => handleCopyInviteLink(code)}
                   style={styles.codeChip}
                 >
-                  {code} 📋
+                  {code} 🔗
                 </span>
               ))}
             </div>
@@ -697,6 +741,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           canvasId={canvasId}
           onDelete={() => handleDeleteElement(el.id)}
           onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
+          onReact={handleReactElement}
           onStackAudio={(targetEl) => {
             setStackTarget(targetEl);
             setStatusBanner('Hold the Voice Drop button below to record your layered reply!');
