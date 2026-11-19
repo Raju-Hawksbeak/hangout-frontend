@@ -74,6 +74,14 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [locks, setLocks] = useState({});
   const [wsConnected, setWsConnected] = useState(false);
 
+  // Spatial Pan & Zoom Viewport state
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const pinchStartDistRef = useRef(null);
+  const pinchStartZoomRef = useRef(1);
+
   // Live Room Presence state
   const [onlineCount, setOnlineCount] = useState(1);
   const [onlineUsers, setOnlineUsers] = useState([user.username]);
@@ -140,6 +148,70 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
+  // Board Pan & Zoom Handlers
+  const clampZoom = (val) => Math.min(1.5, Math.max(0.5, Number(val.toFixed(2))));
+
+  const handleBoardPointerDown = (e) => {
+    if (
+      e.target.closest('[data-card="true"]') ||
+      e.target.closest('button') ||
+      e.target.closest('input') ||
+      e.target.closest('nav') ||
+      e.target.closest('header')
+    ) {
+      return;
+    }
+    isPanningRef.current = true;
+    panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  };
+
+  const handleBoardPointerMove = (e) => {
+    if (!isPanningRef.current) return;
+    setPan({
+      x: e.clientX - panStartRef.current.x,
+      y: e.clientY - panStartRef.current.y
+    });
+  };
+
+  const handleBoardPointerUp = () => {
+    isPanningRef.current = false;
+  };
+
+  const handleBoardWheel = (e) => {
+    if (e.target.closest('iframe')) return;
+    const delta = e.deltaY < 0 ? 0.08 : -0.08;
+    setZoom((z) => clampZoom(z + delta));
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length === 2) {
+      isPanningRef.current = false;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDistRef.current = Math.hypot(dx, dy);
+      pinchStartZoomRef.current = zoom;
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (e.touches.length === 2 && pinchStartDistRef.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / pinchStartDistRef.current;
+      setZoom(clampZoom(pinchStartZoomRef.current * scale));
+    }
+  };
+
+  const handleTouchEnd = () => {
+    pinchStartDistRef.current = null;
+  };
+
+  const resetViewport = () => {
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+  };
+
   const loadElements = async (targetCanvasId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/canvases/${targetCanvasId}/elements`);
@@ -157,6 +229,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   useEffect(() => {
     stopThreadPlayback();
+    resetViewport();
     setElements([]);
     setLocks({});
     setStackTarget(null);
@@ -391,10 +464,10 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setActiveTipTarget(null);
   };
 
-  // Tidy Grid + Persist all arranged positions to Database
   const handleTidyGrid = async () => {
     if (elements.length === 0) return;
 
+    resetViewport();
     const cardWidth = 300;
     const cardHeight = 265;
     const marginX = 24;
@@ -427,7 +500,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setElements(arranged);
     setStatusBanner('Grid arranged & saved permanently!');
 
-    // Save updated coordinates to backend
     Promise.all(
       arranged.map((item) =>
         fetch(`${API_BASE_URL}/canvases/elements/${item.id}/transform`, {
@@ -490,8 +562,10 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   };
 
   const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
-    const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 320));
-    const randomY = Math.floor(115 + Math.random() * Math.max(160, window.innerHeight - 320));
+    const baseOffsetX = Math.max(0, -pan.x / zoom);
+    const baseOffsetY = Math.max(0, -pan.y / zoom);
+    const randomX = Math.floor(baseOffsetX + 40 + Math.random() * Math.max(120, window.innerWidth - 320));
+    const randomY = Math.floor(baseOffsetY + 115 + Math.random() * Math.max(160, window.innerHeight - 320));
 
     const payload = {
       canvas_id: canvasId,
@@ -578,14 +652,16 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       const { peaks, duration } = await extractWaveformPeaks(audioBlob, 30);
       const media_url = await uploadFileToBackend(audioBlob, 'voice-drop.webm');
 
-      let dropX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 310));
-      let dropY = Math.floor(115 + Math.random() * Math.max(160, window.innerHeight - 300));
+      const baseOffsetX = Math.max(0, -pan.x / zoom);
+      const baseOffsetY = Math.max(0, -pan.y / zoom);
+      let dropX = Math.floor(baseOffsetX + 40 + Math.random() * Math.max(120, window.innerWidth - 310));
+      let dropY = Math.floor(baseOffsetY + 115 + Math.random() * Math.max(160, window.innerHeight - 300));
 
       if (stackTarget) {
         const existingReplies = elements.filter((el) => el.parent_element_id === stackTarget.id);
         const parentX = stackTarget.transform_data?.x ?? 60;
         const parentY = stackTarget.transform_data?.y ?? 120;
-        dropX = Math.min(window.innerWidth - 280, parentX + 18);
+        dropX = Math.max(16, parentX + 18);
         dropY = parentY + 135 * (existingReplies.length + 1);
       }
 
@@ -718,10 +794,20 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   return (
     <div
+      onPointerDown={handleBoardPointerDown}
+      onPointerMove={handleBoardPointerMove}
+      onPointerUp={handleBoardPointerUp}
+      onPointerCancel={handleBoardPointerUp}
+      onWheel={handleBoardWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       style={{
         ...styles.board,
         backgroundColor: activeRoom.bgColor,
-        backgroundImage: `radial-gradient(${activeRoom.dotColor} 1px, transparent 1px)`
+        backgroundImage: `radial-gradient(${activeRoom.dotColor} 1px, transparent 1px)`,
+        backgroundPosition: `${pan.x}px ${pan.y}px`,
+        backgroundSize: `${24 * zoom}px ${24 * zoom}px`
       }}
     >
       {/* Top Bar */}
@@ -866,7 +952,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
-      {/* Canvas Elements */}
+      {/* Empty Room Hint */}
       {elements.length === 0 && (
         <div style={styles.emptyState}>
           <div style={{ fontSize: '18px', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
@@ -876,37 +962,84 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
-      {elements.map((el) => {
-        const replies =
-          el.element_type === 'audio' && !el.parent_element_id
-            ? elements.filter((child) => child.parent_element_id === el.id)
-            : [];
+      {/* Pannable & Zoomable Spatial Canvas Layer */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: '0 0',
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none'
+        }}
+      >
+        <div style={{ pointerEvents: 'auto' }}>
+          {elements.map((el) => {
+            const replies =
+              el.element_type === 'audio' && !el.parent_element_id
+                ? elements.filter((child) => child.parent_element_id === el.id)
+                : [];
 
-        return (
-          <DraggableElement
-            key={el.id}
-            element={el}
-            lockInfo={locks[el.id]}
-            socketRef={socketRef}
-            currentUser={user}
-            token={token}
-            canvasId={canvasId}
-            threadReplies={replies}
-            isPlayingThread={playingThreadId === el.id}
-            onPlayThread={handlePlayThread}
-            onDelete={() => handleDeleteElement(el.id)}
-            onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
-            onReact={handleReactElement}
-            onStackAudio={(targetEl) => {
-              const rootParent = targetEl.parent_element_id
-                ? elements.find((p) => p.id === targetEl.parent_element_id) || targetEl
-                : targetEl;
-              setStackTarget(rootParent);
-              setStatusBanner(`Hold "Layer Sound" below to snap your reply under @${rootParent.media_meta?.author || 'Member'}!`);
-            }}
-          />
-        );
-      })}
+            return (
+              <DraggableElement
+                key={el.id}
+                element={el}
+                lockInfo={locks[el.id]}
+                socketRef={socketRef}
+                currentUser={user}
+                token={token}
+                canvasId={canvasId}
+                zoom={zoom}
+                threadReplies={replies}
+                isPlayingThread={playingThreadId === el.id}
+                onPlayThread={handlePlayThread}
+                onDelete={() => handleDeleteElement(el.id)}
+                onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
+                onReact={handleReactElement}
+                onStackAudio={(targetEl) => {
+                  const rootParent = targetEl.parent_element_id
+                    ? elements.find((p) => p.id === targetEl.parent_element_id) || targetEl
+                    : targetEl;
+                  setStackTarget(rootParent);
+                  setStatusBanner(
+                    `Hold "Layer Sound" below to snap your reply under @${rootParent.media_meta?.author || 'Member'}!`
+                  );
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Floating Zoom & Center Controls */}
+      <div style={styles.zoomControls}>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => clampZoom(z - 0.15))}
+          style={styles.zoomBtn}
+          title="Zoom Out"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={resetViewport}
+          style={{ ...styles.zoomBtn, fontSize: '10px', padding: '4px 7px' }}
+          title="Reset Center & 100% Zoom"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => clampZoom(z + 0.15))}
+          style={styles.zoomBtn}
+          title="Zoom In"
+        >
+          +
+        </button>
+      </div>
 
       {/* Creator Tip Setup Modal */}
       {showTipSetup && (
@@ -1189,7 +1322,8 @@ const styles = {
     width: '100vw',
     height: '100vh',
     overflow: 'hidden',
-    backgroundSize: '24px 24px',
+    touchAction: 'none',
+    cursor: 'grab',
     transition: 'background-color 0.25s ease'
   },
   topBar: {
@@ -1245,6 +1379,27 @@ const styles = {
     borderRadius: '999px',
     cursor: 'pointer',
     whiteSpace: 'nowrap'
+  },
+  zoomControls: {
+    position: 'fixed',
+    bottom: '84px',
+    right: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    background: 'rgba(19, 24, 34, 0.9)',
+    border: '1px solid #334155',
+    borderRadius: '999px',
+    padding: '2px',
+    zIndex: 45
+  },
+  zoomBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#cbd5e1',
+    fontWeight: '800',
+    fontSize: '14px',
+    padding: '3px 9px',
+    cursor: 'pointer'
   },
   inviteDrawer: {
     position: 'fixed',
