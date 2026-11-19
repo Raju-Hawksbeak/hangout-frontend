@@ -27,6 +27,7 @@ export default function DraggableElement({
   currentUser,
   token,
   canvasId,
+  zoom = 1,
   threadReplies = [],
   onPlayThread,
   isPlayingThread = false,
@@ -40,6 +41,8 @@ export default function DraggableElement({
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const latestPosRef = useRef(position);
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
 
   const isLockedByOther = Boolean(lockInfo && lockInfo.locked_by !== currentUser.id);
 
@@ -71,12 +74,14 @@ export default function DraggableElement({
     ) {
       return;
     }
+    e.stopPropagation(); // Prevent board panning while dragging a card
     if (isLockedByOther) return;
 
+    const currentZoom = zoomRef.current || 1;
     isDraggingRef.current = true;
     dragOffsetRef.current = {
-      x: e.clientX - latestPosRef.current.x,
-      y: e.clientY - latestPosRef.current.y
+      x: e.clientX / currentZoom - latestPosRef.current.x,
+      y: e.clientY / currentZoom - latestPosRef.current.y
     };
 
     sendWs({
@@ -93,8 +98,9 @@ export default function DraggableElement({
 
   const handlePointerMove = (e) => {
     if (!isDraggingRef.current) return;
-    const newX = Math.max(8, e.clientX - dragOffsetRef.current.x);
-    const newY = Math.max(98, e.clientY - dragOffsetRef.current.y);
+    const currentZoom = zoomRef.current || 1;
+    const newX = Math.max(8, Math.round(e.clientX / currentZoom - dragOffsetRef.current.x));
+    const newY = Math.max(98, Math.round(e.clientY / currentZoom - dragOffsetRef.current.y));
     const updated = { ...(element.transform_data || {}), x: newX, y: newY };
 
     setPosition({ x: newX, y: newY });
@@ -131,7 +137,6 @@ export default function DraggableElement({
       transform_data: finalTransform
     });
 
-    // Persist final position in PostgreSQL database
     if (token) {
       try {
         await fetch(`${API_BASE_URL}/canvases/elements/${element.id}/transform`, {
@@ -158,6 +163,7 @@ export default function DraggableElement({
 
   return (
     <div
+      data-card="true"
       onPointerDown={handlePointerDown}
       style={{
         position: 'absolute',
