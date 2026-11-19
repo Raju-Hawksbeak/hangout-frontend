@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
 import WaveformCard from './WaveformCard';
 
+const REACTION_EMOJIS = ['🔥', '😂', '❤️', '👏'];
+
 function getYouTubeEmbedUrl(url) {
   if (!url) return null;
   const regExp = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
@@ -26,7 +28,8 @@ export default function DraggableElement({
   canvasId,
   onStackAudio,
   onDelete,
-  onOpenTip
+  onOpenTip,
+  onReact
 }) {
   const initialPos = element.transform_data || { x: 60, y: 100 };
   const [position, setPosition] = useState({ x: initialPos.x ?? 60, y: initialPos.y ?? 100 });
@@ -87,7 +90,7 @@ export default function DraggableElement({
   const handlePointerMove = (e) => {
     if (!isDraggingRef.current) return;
     const newX = Math.max(8, e.clientX - dragOffsetRef.current.x);
-    const newY = Math.max(60, e.clientY - dragOffsetRef.current.y);
+    const newY = Math.max(98, e.clientY - dragOffsetRef.current.y);
     const updated = { ...(element.transform_data || {}), x: newX, y: newY };
 
     setPosition({ x: newX, y: newY });
@@ -126,9 +129,11 @@ export default function DraggableElement({
   };
 
   const meta = element.media_meta || {};
+  const reactions = meta.reactions || {};
   const ytEmbedUrl = element.element_type === 'video' ? getYouTubeEmbedUrl(element.media_url) : null;
   const finalMediaUrl = resolveMediaUrl(element.media_url);
   const hasTipHandle = Boolean(meta.tip_handle);
+  const isPhoto = element.element_type === 'photo';
 
   return (
     <div
@@ -144,7 +149,7 @@ export default function DraggableElement({
           ? '2px dashed #ff9100'
           : element.element_type === 'video'
           ? '1px solid #f43f5e'
-          : element.element_type === 'photo'
+          : isPhoto
           ? '1px solid #e2e8f0'
           : element.transform_data?.is_stacked
           ? '1px solid #0284c7'
@@ -152,9 +157,9 @@ export default function DraggableElement({
         boxShadow: isLockedByOther
           ? '0 0 16px rgba(255, 145, 0, 0.35)'
           : '0 10px 28px rgba(0, 0, 0, 0.55)',
-        borderRadius: element.element_type === 'photo' ? '12px' : '16px',
-        padding: element.element_type === 'photo' ? '10px 10px 12px 10px' : '12px 14px',
-        background: element.element_type === 'photo' ? '#f8fafc' : 'rgba(22, 28, 38, 0.94)',
+        borderRadius: isPhoto ? '12px' : '16px',
+        padding: isPhoto ? '10px 10px 12px 10px' : '12px 14px',
+        background: isPhoto ? '#f8fafc' : 'rgba(22, 28, 38, 0.94)',
         backdropFilter: 'blur(10px)',
         userSelect: 'none',
         zIndex: element.transform_data?.z_index || 1
@@ -210,7 +215,7 @@ export default function DraggableElement({
         />
       )}
 
-      {/* 2. Stage Clip (YouTube Embed or Uploaded Short Video) */}
+      {/* 2. Stage Clip */}
       {element.element_type === 'video' && (
         <div style={{ width: '270px' }}>
           <div
@@ -259,7 +264,7 @@ export default function DraggableElement({
       )}
 
       {/* 3. Polaroid Photo Card */}
-      {element.element_type === 'photo' && (
+      {isPhoto && (
         <div style={{ width: '210px' }}>
           <img
             src={finalMediaUrl}
@@ -300,6 +305,59 @@ export default function DraggableElement({
           <div style={{ fontSize: '14px', color: '#f8fafc', lineHeight: '1.4', wordBreak: 'break-word' }}>
             {meta.text || 'Sticky Note'}
           </div>
+        </div>
+      )}
+
+      {/* Live Emoji Reactions Bar */}
+      {onReact && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            marginTop: '8px',
+            flexWrap: 'wrap'
+          }}
+        >
+          {REACTION_EMOJIS.map((emoji) => {
+            const count = reactions[emoji] || 0;
+            return (
+              <button
+                key={emoji}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReact(element.id, emoji);
+                }}
+                style={{
+                  background: isPhoto
+                    ? count > 0
+                      ? '#e2e8f0'
+                      : '#f1f5f9'
+                    : count > 0
+                    ? 'rgba(56, 189, 248, 0.18)'
+                    : 'rgba(15, 23, 42, 0.7)',
+                  border: isPhoto
+                    ? '1px solid #cbd5e1'
+                    : count > 0
+                    ? '1px solid rgba(56, 189, 248, 0.5)'
+                    : '1px solid #334155',
+                  color: isPhoto ? '#0f172a' : '#e2e8f0',
+                  borderRadius: '999px',
+                  padding: '2px 7px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+              >
+                <span>{emoji}</span>
+                {count > 0 && <span>{count}</span>}
+              </button>
+            );
+          })}
         </div>
       )}
 
