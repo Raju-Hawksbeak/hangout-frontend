@@ -1166,4 +1166,23 @@ const styles = {
   },
   noteInput: {
     width: '100%',
-    padding: '11px 1
+    padding: '11px 12px',
+    borderRadius: '10px',
+    border: '1px solid #334155',
+    background: '#0b0e14',
+    color: '#fff',
+    fontSize: '14px',
+    outline: 'none',
+    boxSizing: 'border-box'
+  },
+  primaryMiniBtn: {
+    background: '#00e676',
+    border: 'none',
+    color: '#051b11',
+    fontWeight: '800',
+    fontSize: '12px',
+    padding: '7px 14px',
+    borderRadius: '999px',
+    cursor: 'pointer'
+  }
+};
