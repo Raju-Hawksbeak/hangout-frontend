@@ -29,6 +29,14 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [photoFile, setPhotoFile] = useState(null);
   const [photoCaption, setPhotoCaption] = useState('');
 
+  // Creator Tip Jar & UPI Setup state
+  const storageKey = `hangout_tip_handle_${user.id}`;
+  const [myTipHandle, setMyTipHandle] = useState(() => localStorage.getItem(storageKey) || '');
+  const [showTipSetup, setShowTipSetup] = useState(false);
+  const [tipInput, setTipInput] = useState(myTipHandle);
+  const [activeTipTarget, setActiveTipTarget] = useState(null);
+  const [tipAmount, setTipAmount] = useState('50');
+
   const [showInvites, setShowInvites] = useState(false);
   const [statusBanner, setStatusBanner] = useState('');
 
@@ -71,6 +79,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           );
         } else if (msg.type === 'ELEMENT_DELETED' && msg.element_id) {
           setElements((prev) => prev.filter((el) => el.id !== msg.element_id));
+        } else if (msg.type === 'CREATOR_TIPPED') {
+          setStatusBanner(`🎉 ${msg.from} sent a ₹${msg.amount} tip to @${msg.to}!`);
         } else if (msg.type === 'ELEMENT_LOCKED') {
           setLocks((prev) => ({
             ...prev,
@@ -106,12 +116,61 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     };
   }, [canvasId]);
 
+  // Save Creator UPI ID / Payment Link locally
+  const handleSaveTipSetup = (e) => {
+    e.preventDefault();
+    const cleaned = tipInput.trim();
+    setMyTipHandle(cleaned);
+    localStorage.setItem(storageKey, cleaned);
+    setShowTipSetup(false);
+    setStatusBanner(
+      cleaned
+        ? `Tip Jar active! New drops will include Tip button (${cleaned})`
+        : 'Tip handle cleared.'
+    );
+  };
+
+  // Trigger UPI Intent or Global Link + Broadcast Cheer
+  const handleSendTip = () => {
+    if (!activeTipTarget) return;
+    const handle = activeTipTarget.media_meta?.tip_handle || '';
+    const author = activeTipTarget.media_meta?.author || 'Creator';
+    const amt = Math.max(1, Number(tipAmount) || 50);
+
+    if (handle.startsWith('http://') || handle.startsWith('https://')) {
+      window.open(handle, '_blank', 'noopener,noreferrer');
+    } else if (handle.includes('@')) {
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(handle)}&pn=${encodeURIComponent(
+        author
+      )}&am=${amt}&cu=INR&tn=${encodeURIComponent('Hangout Creator Tip')}`;
+      navigator.clipboard?.writeText(handle);
+      window.location.href = upiUrl;
+    } else {
+      navigator.clipboard?.writeText(handle);
+    }
+
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: 'CREATOR_TIPPED',
+          canvas_id: canvasId,
+          from: user.username,
+          to: author,
+          amount: amt
+        })
+      );
+    }
+
+    setStatusBanner(`💸 Tipping ₹${amt} to @${author} (UPI ID copied: ${handle})`);
+    setActiveTipTarget(null);
+  };
+
   // 3. Tidy Grid (Auto-Arrange overlapping cards cleanly)
   const handleTidyGrid = () => {
     if (elements.length === 0) return;
 
     const cardWidth = 300;
-    const cardHeight = 230;
+    const cardHeight = 250;
     const marginX = 24;
     const marginY = 82;
     const cols = Math.max(1, Math.floor((window.innerWidth - marginX * 2) / cardWidth));
@@ -186,7 +245,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     return uploadData.media_url;
   };
 
-  // Helper: Persist any element & broadcast
+  // Helper: Persist any element & broadcast (attaches creator tip_handle automatically)
   const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
     const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 320));
     const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 300));
@@ -197,7 +256,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       media_url: mediaUrl,
       media_meta: {
         ...mediaMeta,
-        author: user.username
+        author: user.username,
+        tip_handle: myTipHandle || null
       },
       transform_data: {
         x: randomX,
@@ -287,7 +347,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         media_meta: {
           peaks,
           duration,
-          author: user.username
+          author: user.username,
+          tip_handle: myTipHandle || null
         },
         transform_data: {
           x: randomX,
@@ -407,7 +468,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     <div style={styles.board}>
       {/* Top Bar */}
       <header style={styles.topBar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span
             style={{
               width: '9px',
@@ -417,14 +478,27 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             }}
           />
           <div>
-            <div style={{ fontWeight: '800', fontSize: '14px', color: '#fff' }}>Live Jam Canvas</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>@{user.username}</div>
+            <div style={{ fontWeight: '800', fontSize: '13px', color: '#fff' }}>Live Jam Canvas</div>
+            <div style={{ fontSize: '10px', color: '#94a3b8' }}>@{user.username}</div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              setTipInput(myTipHandle);
+              setShowTipSetup(true);
+            }}
+            style={{
+              ...styles.pillBtn,
+              borderColor: myTipHandle ? '#f59e0b' : '#475569',
+              color: myTipHandle ? '#fcd34d' : '#cbd5e1'
+            }}
+          >
+            💸 {myTipHandle ? 'Tip On' : 'Tip Setup'}
+          </button>
           <button onClick={handleTidyGrid} style={{ ...styles.pillBtn, borderColor: '#38bdf8', color: '#38bdf8' }}>
-            Tidy Grid
+            Tidy
           </button>
           <button onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
             Invites ({inviteCodes.length})
@@ -491,7 +565,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             The Canvas is Quiet...
           </div>
           <div style={{ fontSize: '13px', color: '#64748b' }}>
-            Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note from the dock below!
+            Set your UPI in Tip Setup, then drop a Stage Clip, Photo, or Voice Wave!
           </div>
         </div>
       )}
@@ -505,12 +579,105 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           currentUser={user}
           canvasId={canvasId}
           onDelete={() => handleDeleteElement(el.id)}
+          onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
           onStackAudio={(targetEl) => {
             setStackTarget(targetEl);
             setStatusBanner('Hold the Voice Drop button below to record your layered reply!');
           }}
         />
       ))}
+
+      {/* Creator Tip Setup Modal */}
+      {showTipSetup && (
+        <div style={styles.modalBackdrop} onClick={() => setShowTipSetup(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleSaveTipSetup} style={styles.noteModal}>
+            <div style={{ fontWeight: '800', fontSize: '15px', marginBottom: '4px', color: '#fcd34d' }}>
+              💸 Creator Tip Jar Setup (0% Fee)
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
+              Enter your UPI ID (e.g., <b>name@okicici</b>) or payment link. Fans can tip you directly from your cards!
+            </div>
+            <input
+              type="text"
+              placeholder="yourname@upi or https://..."
+              value={tipInput}
+              onChange={(e) => setTipInput(e.target.value)}
+              autoFocus
+              style={styles.noteInput}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+              <button type="button" onClick={() => setShowTipSetup(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{ ...styles.primaryMiniBtn, background: '#f59e0b', color: '#1e1b04' }}
+              >
+                Save Tip Handle
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Fan Tip Payment Modal */}
+      {activeTipTarget && (
+        <div style={styles.modalBackdrop} onClick={() => setActiveTipTarget(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={styles.noteModal}>
+            <div style={{ fontWeight: '800', fontSize: '15px', marginBottom: '4px', color: '#fcd34d' }}>
+              💸 Tip @{activeTipTarget.media_meta?.author || 'Creator'}
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
+              100% goes directly to <b>{activeTipTarget.media_meta?.tip_handle}</b>
+            </div>
+
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+              {['20', '50', '100', '250'].map((amt) => (
+                <button
+                  key={amt}
+                  type="button"
+                  onClick={() => setTipAmount(amt)}
+                  style={{
+                    flex: 1,
+                    padding: '7px 0',
+                    borderRadius: '8px',
+                    border: tipAmount === amt ? '1px solid #f59e0b' : '1px solid #334155',
+                    background: tipAmount === amt ? 'rgba(245, 158, 11, 0.2)' : '#0b0e14',
+                    color: '#fcd34d',
+                    fontWeight: '700',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ₹{amt}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="number"
+              min="1"
+              placeholder="Custom amount (INR)"
+              value={tipAmount}
+              onChange={(e) => setTipAmount(e.target.value)}
+              style={{ ...styles.noteInput, marginBottom: '12px' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={() => setActiveTipTarget(null)} style={styles.pillBtn}>
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSendTip}
+                style={{ ...styles.primaryMiniBtn, background: '#f59e0b', color: '#1e1b04' }}
+              >
+                Pay ₹{tipAmount || '50'} Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sticky Note Modal */}
       {showNoteModal && (
@@ -707,7 +874,7 @@ const styles = {
     left: 0,
     right: 0,
     height: '58px',
-    padding: '0 16px',
+    padding: '0 12px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -720,11 +887,12 @@ const styles = {
     background: '#1e293b',
     border: '1px solid #334155',
     color: '#e2e8f0',
-    fontSize: '12px',
+    fontSize: '11px',
     fontWeight: '600',
-    padding: '6px 12px',
+    padding: '6px 10px',
     borderRadius: '999px',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
   },
   inviteDrawer: {
     position: 'fixed',
@@ -760,7 +928,10 @@ const styles = {
     borderRadius: '999px',
     zIndex: 70,
     cursor: 'pointer',
-    whiteSpace: 'nowrap'
+    whiteSpace: 'nowrap',
+    maxWidth: '90vw',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
   },
   stackBanner: {
     position: 'fixed',
