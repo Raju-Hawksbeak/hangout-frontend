@@ -6,6 +6,45 @@ import DraggableElement from './DraggableElement';
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
 const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
 
+const ROOMS = [
+  {
+    id: DEFAULT_CANVAS_ID,
+    label: 'Live Jam',
+    icon: '⚡',
+    accent: '#00e676',
+    dotColor: '#1e293b',
+    bgColor: '#0b0e14',
+    hint: 'Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note!'
+  },
+  {
+    id: 'standup-stage',
+    label: 'Standup Stage',
+    icon: '🎤',
+    accent: '#fb7185',
+    dotColor: '#31101b',
+    bgColor: '#12090d',
+    hint: 'Drop your 1-min standup bits, crowd-work clips, or punchline notes!'
+  },
+  {
+    id: 'baul-jam',
+    label: 'Baul & Folk Jam',
+    icon: '🎸',
+    accent: '#fbbf24',
+    dotColor: '#2d210b',
+    bgColor: '#120e08',
+    hint: 'Drop an acoustic riff or vocal alaap, then hit + Layer Sound to jam together!'
+  },
+  {
+    id: 'chill-lounge',
+    label: 'Chill Lounge',
+    icon: '🌙',
+    accent: '#a78bfa',
+    dotColor: '#22183a',
+    bgColor: '#0d0a16',
+    hint: 'Late-night adda, poetry drops, and raw backstage Polaroids.'
+  }
+];
+
 function isValidTipHandle(value) {
   if (!value) return true;
   if (UPI_PATTERN.test(value)) return true;
@@ -25,6 +64,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [elements, setElements] = useState([]);
   const [locks, setLocks] = useState({});
   const [wsConnected, setWsConnected] = useState(false);
+
+  const activeRoom = ROOMS.find((r) => r.id === canvasId) || ROOMS[0];
 
   // Voice recording & stacking state
   const [isRecording, setIsRecording] = useState(false);
@@ -60,22 +101,28 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   const socketRef = useRef(null);
 
-  // 1. Fetch existing elements from backend
-  const loadElements = async () => {
+  // 1. Fetch existing elements for the active room
+  const loadElements = async (targetCanvasId) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/canvases/${canvasId}/elements`);
+      const res = await fetch(`${API_BASE_URL}/canvases/${targetCanvasId}/elements`);
       if (res.ok) {
         const data = await res.json();
         setElements(data);
+      } else {
+        setElements([]);
       }
     } catch (err) {
       console.error('Failed to fetch canvas elements:', err);
+      setElements([]);
     }
   };
 
-  // 2. Connect real-time WebSocket hub
+  // 2. Connect real-time WebSocket hub per room
   useEffect(() => {
-    loadElements();
+    setElements([]);
+    setLocks({});
+    setStackTarget(null);
+    loadElements(canvasId);
 
     const ws = new WebSocket(`${WS_BASE_URL}/canvases/ws/${canvasId}`);
     socketRef.current = ws;
@@ -86,6 +133,9 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+
+        // Ignore broadcasts belonging to other rooms
+        if (msg.canvas_id && msg.canvas_id !== canvasId) return;
 
         if (msg.type === 'NEW_ELEMENT' && msg.element) {
           setElements((prev) =>
@@ -134,7 +184,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     };
   }, [canvasId]);
 
-  // Save Creator UPI ID / Trusted Payment Link with strict validation
+  // Save Creator UPI ID / Trusted Payment Link
   const handleSaveTipSetup = (e) => {
     e.preventDefault();
     setTipError('');
@@ -201,7 +251,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     const cardWidth = 300;
     const cardHeight = 250;
     const marginX = 24;
-    const marginY = 82;
+    const marginY = 114;
     const cols = Math.max(1, Math.floor((window.innerWidth - marginX * 2) / cardWidth));
 
     const arranged = elements.map((el, idx) => {
@@ -283,7 +333,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   // Helper: Persist any element & broadcast
   const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
     const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 320));
-    const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 300));
+    const randomY = Math.floor(115 + Math.random() * Math.max(160, window.innerHeight - 320));
 
     const payload = {
       canvas_id: canvasId,
@@ -373,7 +423,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       const media_url = await uploadFileToBackend(audioBlob, 'voice-drop.webm');
 
       const randomX = Math.floor(40 + Math.random() * Math.max(120, window.innerWidth - 310));
-      const randomY = Math.floor(90 + Math.random() * Math.max(160, window.innerHeight - 280));
+      const randomY = Math.floor(115 + Math.random() * Math.max(160, window.innerHeight - 300));
 
       const payload = {
         canvas_id: canvasId,
@@ -448,7 +498,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // 9. Drop a Stage Clip (YouTube Link OR Short Video File)
+  // 9. Drop a Stage Clip
   const handleAddStageClip = async (e) => {
     e.preventDefault();
     if (!stageUrl.trim() && !stageFile) return;
@@ -500,7 +550,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   };
 
   return (
-    <div style={styles.board}>
+    <div
+      style={{
+        ...styles.board,
+        backgroundColor: activeRoom.bgColor,
+        backgroundImage: `radial-gradient(${activeRoom.dotColor} 1px, transparent 1px)`
+      }}
+    >
       {/* Top Bar */}
       <header style={styles.topBar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -509,11 +565,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               width: '9px',
               height: '9px',
               borderRadius: '50%',
-              background: wsConnected ? '#00e676' : '#f59e0b'
+              background: wsConnected ? activeRoom.accent : '#f59e0b'
             }}
           />
           <div>
-            <div style={{ fontWeight: '800', fontSize: '13px', color: '#fff' }}>Live Jam Canvas</div>
+            <div style={{ fontWeight: '800', fontSize: '13px', color: '#fff' }}>
+              {activeRoom.icon} {activeRoom.label}
+            </div>
             <div style={{ fontSize: '10px', color: '#94a3b8' }}>@{user.username}</div>
           </div>
         </div>
@@ -544,6 +602,31 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           </button>
         </div>
       </header>
+
+      {/* Multi-Room Channel Switcher Bar */}
+      <nav style={styles.roomBar}>
+        {ROOMS.map((room) => {
+          const isActive = room.id === canvasId;
+          return (
+            <button
+              key={room.id}
+              onClick={() => {
+                setCanvasId(room.id);
+                setStatusBanner(`Switched to ${room.icon} ${room.label}`);
+              }}
+              style={{
+                ...styles.roomChip,
+                borderColor: isActive ? room.accent : '#1e293b',
+                background: isActive ? 'rgba(255,255,255,0.08)' : 'rgba(15, 23, 42, 0.7)',
+                color: isActive ? room.accent : '#94a3b8'
+              }}
+            >
+              <span>{room.icon}</span>
+              <span>{room.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
       {/* Invite Codes Drawer */}
       {showInvites && (
@@ -598,11 +681,9 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       {elements.length === 0 && (
         <div style={styles.emptyState}>
           <div style={{ fontSize: '18px', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
-            The Canvas is Quiet...
+            {activeRoom.icon} {activeRoom.label} is Quiet...
           </div>
-          <div style={{ fontSize: '13px', color: '#64748b' }}>
-            Set your UPI in Tip Setup, then drop a Stage Clip, Photo, or Voice Wave!
-          </div>
+          <div style={{ fontSize: '13px', color: '#64748b' }}>{activeRoom.hint}</div>
         </div>
       )}
 
@@ -724,7 +805,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         <div style={styles.modalBackdrop} onClick={() => setShowNoteModal(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddNote} style={styles.noteModal}>
             <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '10px', color: '#fff' }}>
-              Drop a Sticky Note
+              Drop a Sticky Note in {activeRoom.label}
             </div>
             <input
               type="text"
@@ -881,7 +962,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           className={isRecording ? 'recording-pulse' : ''}
           style={{
             ...styles.voiceBtn,
-            background: isRecording ? '#ff1744' : isUploading ? '#475569' : '#00e676',
+            background: isRecording ? '#ff1744' : isUploading ? '#475569' : activeRoom.accent,
             color: isRecording ? '#ffffff' : '#051b11'
           }}
         >
@@ -904,24 +985,51 @@ const styles = {
     width: '100vw',
     height: '100vh',
     overflow: 'hidden',
-    backgroundColor: '#0b0e14',
-    backgroundImage: 'radial-gradient(#1e293b 1px, transparent 1px)',
-    backgroundSize: '24px 24px'
+    backgroundSize: '24px 24px',
+    transition: 'background-color 0.25s ease'
   },
   topBar: {
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
-    height: '58px',
+    height: '54px',
     padding: '0 12px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    background: 'rgba(11, 14, 20, 0.85)',
+    background: 'rgba(11, 14, 20, 0.88)',
     backdropFilter: 'blur(12px)',
     borderBottom: '1px solid #1e293b',
+    zIndex: 55
+  },
+  roomBar: {
+    position: 'fixed',
+    top: '54px',
+    left: 0,
+    right: 0,
+    height: '42px',
+    padding: '0 12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(11, 14, 20, 0.72)',
+    backdropFilter: 'blur(8px)',
+    borderBottom: '1px solid rgba(30, 41, 59, 0.6)',
+    overflowX: 'auto',
     zIndex: 50
+  },
+  roomChip: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    border: '1px solid #1e293b',
+    fontSize: '11px',
+    fontWeight: '700',
+    padding: '5px 11px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
   },
   pillBtn: {
     background: '#1e293b',
@@ -936,7 +1044,7 @@ const styles = {
   },
   inviteDrawer: {
     position: 'fixed',
-    top: '64px',
+    top: '102px',
     right: '16px',
     background: '#131822',
     border: '1px solid #2d3748',
@@ -957,14 +1065,14 @@ const styles = {
   },
   toast: {
     position: 'fixed',
-    top: '68px',
+    top: '104px',
     left: '50%',
     transform: 'translateX(-50%)',
     background: '#1e293b',
     border: '1px solid #38bdf8',
     color: '#f8fafc',
     fontSize: '12px',
-    padding: '8px 16px',
+    padding: '7px 15px',
     borderRadius: '999px',
     zIndex: 70,
     cursor: 'pointer',
@@ -990,7 +1098,7 @@ const styles = {
   },
   emptyState: {
     position: 'absolute',
-    top: '50%',
+    top: '52%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
     textAlign: 'center',
@@ -1058,23 +1166,4 @@ const styles = {
   },
   noteInput: {
     width: '100%',
-    padding: '11px 12px',
-    borderRadius: '10px',
-    border: '1px solid #334155',
-    background: '#0b0e14',
-    color: '#fff',
-    fontSize: '14px',
-    outline: 'none',
-    boxSizing: 'border-box'
-  },
-  primaryMiniBtn: {
-    background: '#00e676',
-    border: 'none',
-    color: '#051b11',
-    fontWeight: '800',
-    fontSize: '12px',
-    padding: '7px 14px',
-    borderRadius: '999px',
-    cursor: 'pointer'
-  }
-};
+    padding: '11px 1
