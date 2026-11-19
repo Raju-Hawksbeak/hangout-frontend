@@ -25,7 +25,8 @@ export default function DraggableElement({
   currentUser,
   canvasId,
   onStackAudio,
-  onDelete
+  onDelete,
+  onOpenTip
 }) {
   const initialPos = element.transform_data || { x: 60, y: 100 };
   const [position, setPosition] = useState({ x: initialPos.x ?? 60, y: initialPos.y ?? 100 });
@@ -127,6 +128,7 @@ export default function DraggableElement({
   const meta = element.media_meta || {};
   const ytEmbedUrl = element.element_type === 'video' ? getYouTubeEmbedUrl(element.media_url) : null;
   const finalMediaUrl = resolveMediaUrl(element.media_url);
+  const hasTipHandle = Boolean(meta.tip_handle);
 
   return (
     <div
@@ -151,7 +153,7 @@ export default function DraggableElement({
           ? '0 0 16px rgba(255, 145, 0, 0.35)'
           : '0 10px 28px rgba(0, 0, 0, 0.55)',
         borderRadius: element.element_type === 'photo' ? '12px' : '16px',
-        padding: element.element_type === 'photo' ? '10px 10px 14px 10px' : '12px 14px',
+        padding: element.element_type === 'photo' ? '10px 10px 12px 10px' : '12px 14px',
         background: element.element_type === 'photo' ? '#f8fafc' : 'rgba(22, 28, 38, 0.94)',
         backdropFilter: 'blur(10px)',
         userSelect: 'none',
@@ -299,6 +301,35 @@ export default function DraggableElement({
             {meta.text || 'Sticky Note'}
           </div>
         </div>
+      )}
+
+      {/* Zero-Commission Creator Tip Action */}
+      {hasTipHandle && onOpenTip && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenTip(element);
+          }}
+          style={{
+            marginTop: '8px',
+            width: '100%',
+            background: 'linear-gradient(90deg, #f59e0b, #eab308)',
+            border: 'none',
+            color: '#1e1b04',
+            fontSize: '11px',
+            fontWeight: '800',
+            padding: '5px 10px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '5px'
+          }}
+        >
+          💸 Tip @{meta.author || 'Creator'}
+        </button>
       )}
     </div>
   );
