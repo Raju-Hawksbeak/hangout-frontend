@@ -1,5 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { API_BASE_URL } from '../config';
 import WaveformCard from './WaveformCard';
+
+function getYouTubeEmbedUrl(url) {
+  if (!url) return null;
+  const regExp = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
+  const match = url.match(regExp);
+  return match ? `https://www.youtube.com/embed/${match[1]}?rel=0` : null;
+}
+
+function resolveMediaUrl(url) {
+  if (!url) return '';
+  if (url.includes('/canvases/media/stream/')) {
+    const filePart = url.split('/canvases/media/stream/')[1];
+    return `${API_BASE_URL}/canvases/media/stream/${filePart}`;
+  }
+  return url;
+}
 
 export default function DraggableElement({
   element,
@@ -18,7 +35,6 @@ export default function DraggableElement({
 
   const isLockedByOther = Boolean(lockInfo && lockInfo.locked_by !== currentUser.id);
 
-  // Sync position when another user moves or releases the element
   useEffect(() => {
     if (!isDraggingRef.current && element.transform_data) {
       const nextPos = {
@@ -38,8 +54,13 @@ export default function DraggableElement({
   };
 
   const handlePointerDown = (e) => {
-    // Allow clicks on PLAY, + Layer Sound, Delete, or links without triggering card drag
-    if (e.target.closest('button') || e.target.closest('a') || e.target.closest('input')) {
+    if (
+      e.target.closest('button') ||
+      e.target.closest('a') ||
+      e.target.closest('input') ||
+      e.target.closest('iframe') ||
+      e.target.closest('video')
+    ) {
       return;
     }
     if (isLockedByOther) return;
@@ -104,6 +125,8 @@ export default function DraggableElement({
   };
 
   const meta = element.media_meta || {};
+  const ytEmbedUrl = element.element_type === 'video' ? getYouTubeEmbedUrl(element.media_url) : null;
+  const finalMediaUrl = resolveMediaUrl(element.media_url);
 
   return (
     <div
@@ -117,15 +140,19 @@ export default function DraggableElement({
         opacity: isLockedByOther ? 0.78 : 1,
         border: isLockedByOther
           ? '2px dashed #ff9100'
+          : element.element_type === 'video'
+          ? '1px solid #f43f5e'
+          : element.element_type === 'photo'
+          ? '1px solid #e2e8f0'
           : element.transform_data?.is_stacked
           ? '1px solid #0284c7'
           : '1px solid #263042',
         boxShadow: isLockedByOther
           ? '0 0 16px rgba(255, 145, 0, 0.35)'
           : '0 10px 28px rgba(0, 0, 0, 0.55)',
-        borderRadius: '16px',
-        padding: '12px 14px',
-        background: 'rgba(22, 28, 38, 0.94)',
+        borderRadius: element.element_type === 'photo' ? '12px' : '16px',
+        padding: element.element_type === 'photo' ? '10px 10px 14px 10px' : '12px 14px',
+        background: element.element_type === 'photo' ? '#f8fafc' : 'rgba(22, 28, 38, 0.94)',
         backdropFilter: 'blur(10px)',
         userSelect: 'none',
         zIndex: element.transform_data?.z_index || 1
@@ -144,12 +171,12 @@ export default function DraggableElement({
             position: 'absolute',
             top: '8px',
             right: '8px',
-            width: '20px',
-            height: '20px',
+            width: '22px',
+            height: '22px',
             borderRadius: '50%',
             border: '1px solid #334155',
             background: '#0f172a',
-            color: '#94a3b8',
+            color: '#f8fafc',
             fontSize: '11px',
             lineHeight: '1',
             display: 'flex',
@@ -169,7 +196,8 @@ export default function DraggableElement({
         </div>
       )}
 
-      {element.element_type === 'audio' ? (
+      {/* 1. Audio Waveform Card */}
+      {element.element_type === 'audio' && (
         <WaveformCard
           mediaUrl={element.media_url}
           peaks={meta.peaks}
@@ -178,7 +206,91 @@ export default function DraggableElement({
           isStacked={Boolean(element.transform_data?.is_stacked)}
           onStackAudio={() => onStackAudio(element)}
         />
-      ) : (
+      )}
+
+      {/* 2. Stage Clip (YouTube Embed or Uploaded Short Video) */}
+      {element.element_type === 'video' && (
+        <div style={{ width: '270px' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              color: '#fb7185',
+              fontWeight: '800',
+              marginBottom: '6px',
+              paddingRight: '24px',
+              letterSpacing: '0.4px'
+            }}
+          >
+            🎬 STAGE CLIP • {meta.author || 'Member'}
+          </div>
+          {ytEmbedUrl ? (
+            <iframe
+              width="270"
+              height="155"
+              src={ytEmbedUrl}
+              title={meta.title || 'Stage Clip'}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ borderRadius: '10px', display: 'block', background: '#000' }}
+            />
+          ) : (
+            <video
+              src={finalMediaUrl}
+              controls
+              playsInline
+              style={{
+                width: '270px',
+                maxHeight: '220px',
+                borderRadius: '10px',
+                display: 'block',
+                background: '#000'
+              }}
+            />
+          )}
+          {meta.title && (
+            <div style={{ fontSize: '12px', color: '#f1f5f9', fontWeight: '600', marginTop: '6px' }}>
+              {meta.title}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. Polaroid Photo Card */}
+      {element.element_type === 'photo' && (
+        <div style={{ width: '210px' }}>
+          <img
+            src={finalMediaUrl}
+            alt={meta.caption || 'Canvas snapshot'}
+            draggable={false}
+            style={{
+              width: '210px',
+              height: '190px',
+              objectFit: 'cover',
+              borderRadius: '6px',
+              display: 'block',
+              background: '#cbd5e1'
+            }}
+          />
+          <div
+            style={{
+              marginTop: '8px',
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#0f172a',
+              wordBreak: 'break-word'
+            }}
+          >
+            {meta.caption || 'Live Moment'}
+          </div>
+          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>
+            📸 @{meta.author || 'Member'}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Sticky Note Card */}
+      {element.element_type === 'text' && (
         <div style={{ maxWidth: '220px', paddingRight: '18px' }}>
           <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: '700', marginBottom: '4px' }}>
             NOTE • {meta.author || 'Member'}
