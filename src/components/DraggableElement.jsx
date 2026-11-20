@@ -38,8 +38,8 @@ export default function DraggableElement({
   onPinCard,
   onReact
 }) {
-  const initialPos = element.transform_data || { x: 60, y: 110 };
-  const [position, setPosition] = useState({ x: initialPos.x ?? 60, y: initialPos.y ?? 110 });
+  const initialPos = element.transform_data || { x: 24, y: 112 };
+  const [position, setPosition] = useState({ x: initialPos.x ?? 24, y: initialPos.y ?? 112 });
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const latestPosRef = useRef(position);
@@ -174,6 +174,8 @@ export default function DraggableElement({
         position: 'absolute',
         left: `${position.x}px`,
         top: `${position.y}px`,
+        maxWidth: 'min(340px, 86vw)',
+        boxSizing: 'border-box',
         touchAction: 'none',
         cursor: isLockedByOther ? 'not-allowed' : 'grab',
         opacity: isLockedByOther ? 0.78 : 1,
@@ -217,8 +219,8 @@ export default function DraggableElement({
             position: 'absolute',
             top: '8px',
             right: '8px',
-            width: '22px',
-            height: '22px',
+            width: '24px',
+            height: '24px',
             borderRadius: '50%',
             border: '1px solid #334155',
             background: '#0f172a',
@@ -254,7 +256,7 @@ export default function DraggableElement({
             padding: '2px 7px',
             borderRadius: '999px',
             marginBottom: '6px',
-            marginRight: '22px'
+            marginRight: '24px'
           }}
         >
           🚧 WIP • Raw Draft
@@ -268,7 +270,7 @@ export default function DraggableElement({
             color: '#38bdf8',
             fontWeight: '800',
             marginBottom: '6px',
-            paddingRight: '22px',
+            paddingRight: '24px',
             display: 'flex',
             alignItems: 'center',
             gap: '4px'
@@ -304,7 +306,7 @@ export default function DraggableElement({
                 color: isPlayingThread ? '#fff' : '#7dd3fc',
                 fontSize: '11px',
                 fontWeight: '800',
-                padding: '5px 10px',
+                padding: '6px 10px',
                 borderRadius: '8px',
                 cursor: 'pointer'
               }}
@@ -318,14 +320,14 @@ export default function DraggableElement({
       )}
 
       {element.element_type === 'video' && (
-        <div style={{ width: '270px' }}>
+        <div style={{ width: 'clamp(220px, 68vw, 300px)' }}>
           <div
             style={{
               fontSize: '10px',
               color: '#fb7185',
               fontWeight: '800',
               marginBottom: '6px',
-              paddingRight: '24px',
+              paddingRight: '26px',
               letterSpacing: '0.4px'
             }}
           >
@@ -333,8 +335,8 @@ export default function DraggableElement({
           </div>
           {ytEmbedUrl ? (
             <iframe
-              width="270"
-              height="155"
+              width="100%"
+              height="165"
               src={ytEmbedUrl}
               title={meta.title || 'Stage Clip'}
               frameBorder="0"
@@ -349,7 +351,7 @@ export default function DraggableElement({
               controlsList={meta.stream_only !== false ? 'nodownload' : undefined}
               playsInline
               style={{
-                width: '270px',
+                width: '100%',
                 maxHeight: '220px',
                 borderRadius: '10px',
                 display: 'block',
@@ -366,14 +368,14 @@ export default function DraggableElement({
       )}
 
       {isPhoto && (
-        <div style={{ width: '210px' }}>
+        <div style={{ width: 'clamp(190px, 60vw, 240px)' }}>
           <img
             src={finalMediaUrl}
             alt={meta.caption || 'Canvas snapshot'}
             draggable={false}
             style={{
-              width: '210px',
-              height: '190px',
+              width: '100%',
+              height: '195px',
               objectFit: 'cover',
               borderRadius: '6px',
               display: 'block',
@@ -398,7 +400,7 @@ export default function DraggableElement({
       )}
 
       {element.element_type === 'text' && (
-        <div style={{ maxWidth: '230px', paddingRight: '18px' }}>
+        <div style={{ width: 'clamp(200px, 64vw, 260px)', paddingRight: '20px' }}>
           <div
             style={{
               fontSize: '10px',
@@ -409,7 +411,7 @@ export default function DraggableElement({
           >
             {isQa ? '❓ LISTENER Q&A' : 'NOTE'} • @{meta.author || 'Member'}
           </div>
-          <div style={{ fontSize: '14px', color: '#f8fafc', lineHeight: '1.4', wordBreak: 'break-word' }}>
+          <div style={{ fontSize: '14px', color: '#f8fafc', lineHeight: '1.45', wordBreak: 'break-word' }}>
             {meta.text || 'Sticky Note'}
           </div>
         </div>
@@ -450,7 +452,7 @@ export default function DraggableElement({
                     : '1px solid #334155',
                   color: isPhoto ? '#0f172a' : '#e2e8f0',
                   borderRadius: '999px',
-                  padding: '2px 7px',
+                  padding: '3px 7px',
                   fontSize: '11px',
                   fontWeight: '700',
                   cursor: 'pointer',
@@ -483,7 +485,7 @@ export default function DraggableElement({
             color: isPhoto ? '#0f172a' : '#6ee7b7',
             fontSize: '9.5px',
             fontWeight: '700',
-            padding: '4px 8px',
+            padding: '5px 8px',
             borderRadius: '7px',
             cursor: 'pointer',
             display: 'flex',
@@ -511,7 +513,7 @@ export default function DraggableElement({
             color: isPhoto ? '#0f172a' : '#fde047',
             fontSize: '10px',
             fontWeight: '800',
-            padding: '4px 8px',
+            padding: '5px 8px',
             borderRadius: '7px',
             cursor: 'pointer'
           }}
@@ -535,7 +537,7 @@ export default function DraggableElement({
             color: '#1e1b04',
             fontSize: '11px',
             fontWeight: '800',
-            padding: '5px 10px',
+            padding: '6px 10px',
             borderRadius: '8px',
             cursor: 'pointer',
             display: 'flex',
