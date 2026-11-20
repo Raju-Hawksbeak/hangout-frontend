@@ -67,7 +67,9 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [activeIpTarget, setActiveIpTarget] = useState(null);
 
   const activeTheme = ROOM_THEMES.find((r) => r.id === canvasId) || ROOM_THEMES[0];
-  const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms[DEFAULT_CANVAS_ID];
+  //const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms[DEFAULT_CANVAS_ID];
+  const fallbackRoom = { label: 'Thek Main', hint: 'Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note!' };
+const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-hangout'] || fallbackRoom;
 
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -798,7 +800,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       <nav style={styles.roomBar}>
         {ROOM_THEMES.map((room) => {
           const isActive = room.id === canvasId;
-          const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms[room.id];
+          //const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms[room.id];
+      const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id] || { label: room.id, hint: '' };
           return (
             <button
               key={room.id}
