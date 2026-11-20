@@ -66,10 +66,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [streamOnlyMode, setStreamOnlyMode] = useState(true);
   const [activeIpTarget, setActiveIpTarget] = useState(null);
 
+  const [pinnedElement, setPinnedElement] = useState(null);
+  const [showQaModal, setShowQaModal] = useState(false);
+  const [qaText, setQaText] = useState('');
+
   const activeTheme = ROOM_THEMES.find((r) => r.id === canvasId) || ROOM_THEMES[0];
-  //const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms[DEFAULT_CANVAS_ID];
   const fallbackRoom = { label: 'Thek Main', hint: 'Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note!' };
-const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-hangout'] || fallbackRoom;
+  const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-hangout'] || fallbackRoom;
 
   const [isRecording, setIsRecording] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -212,6 +215,7 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
     setElements([]);
     setLocks({});
     setStackTarget(null);
+    setPinnedElement(null);
     setOnlineCount(1);
     setOnlineUsers([safeUser.username]);
     loadElements(canvasId);
@@ -248,6 +252,12 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
             );
           } else if (msg.type === 'ELEMENT_DELETED' && msg.element_id) {
             setElements((prev) => prev.filter((el) => el.id !== msg.element_id));
+            setPinnedElement((prev) => (prev?.id === msg.element_id ? null : prev));
+          } else if (msg.type === 'PIN_STAGE_CARD') {
+            setPinnedElement(msg.element || null);
+            if (msg.element) {
+              setStatusBanner(`📌 Pinned on stage by @${msg.pinned_by || 'Host'}`);
+            }
           } else if (msg.type === 'CREATOR_TIP_CHEER') {
             setStatusBanner(`👏 ${msg.from} opened a ₹${msg.amount} tip cheer for @${msg.to}!`);
           } else if (msg.type === 'ELEMENT_LOCKED') {
@@ -472,6 +482,7 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
         return;
       }
       setElements((prev) => prev.filter((el) => el.id !== elementId));
+      setPinnedElement((prev) => (prev?.id === elementId ? null : prev));
       if (socketRef.current?.readyState === WebSocket.OPEN) {
         socketRef.current.send(
           JSON.stringify({ type: 'ELEMENT_DELETED', canvas_id: canvasId, element_id: elementId })
@@ -529,6 +540,36 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
       socketRef.current.send(
         JSON.stringify({ type: 'NEW_ELEMENT', canvas_id: canvasId, element: saved })
       );
+    }
+  };
+
+  const handlePinElement = (targetEl) => {
+    setPinnedElement(targetEl);
+    if (targetEl) {
+      setStatusBanner(`📌 Pinned @${targetEl.media_meta?.author || 'Member'}'s card to stage!`);
+    }
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: 'PIN_STAGE_CARD',
+          canvas_id: canvasId,
+          pinned_by: safeUser.username,
+          element: targetEl
+        })
+      );
+    }
+  };
+
+  const handleAddQa = async (e) => {
+    e.preventDefault();
+    if (!qaText.trim()) return;
+    try {
+      await persistCanvasElement('text', null, { text: qaText.trim(), is_qa: true });
+      setQaText('');
+      setShowQaModal(false);
+      setStatusBanner('❓ Listener Q&A dropped onto Thek!');
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not post question.');
     }
   };
 
@@ -800,8 +841,7 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
       <nav style={styles.roomBar}>
         {ROOM_THEMES.map((room) => {
           const isActive = room.id === canvasId;
-          //const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms[room.id];
-      const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id] || { label: room.id, hint: '' };
+          const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id] || { label: room.id, hint: '' };
           return (
             <button
               key={room.id}
@@ -822,6 +862,26 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
           );
         })}
       </nav>
+
+      {pinnedElement && (
+        <div style={styles.pinnedBanner}>
+          <div style={{ overflow: 'hidden' }}>
+            <div style={{ fontSize: '10px', fontWeight: '800', color: '#fbbf24', letterSpacing: '0.4px' }}>
+              📌 ON STAGE • @{pinnedElement.media_meta?.author || 'Member'}
+            </div>
+            <div style={{ fontSize: '12.5px', color: '#fff', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {pinnedElement.media_meta?.text || pinnedElement.media_meta?.title || pinnedElement.media_meta?.caption || '🎙 Live Audio / Stage Spotlight'}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => handlePinElement(null)}
+            style={styles.unpinBtn}
+          >
+            Unpin
+          </button>
+        </div>
+      )}
 
       {showInvites && (
         <div style={styles.inviteDrawer}>
@@ -904,6 +964,7 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
                 onDelete={() => handleDeleteElement(el.id)}
                 onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
                 onInspectIp={(targetEl) => setActiveIpTarget(targetEl)}
+                onPinCard={handlePinElement}
                 onReact={handleReactElement}
                 onStackAudio={(targetEl) => {
                   const rootParent = targetEl.parent_element_id
@@ -1007,6 +1068,31 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showQaModal && (
+        <div style={styles.modalBackdrop} onClick={() => setShowQaModal(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddQa} style={styles.noteModal}>
+            <div style={{ fontWeight: '800', fontSize: '14px', marginBottom: '8px', color: '#fbbf24' }}>
+              ❓ Ask the Host / Podcaster
+            </div>
+            <input
+              type="text"
+              placeholder="Type your live question or topic request..."
+              value={qaText}
+              onChange={(e) => setQaText(e.target.value)}
+              maxLength={160}
+              autoFocus
+              style={styles.noteInput}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+              <button type="button" onClick={() => setShowQaModal(false)} style={styles.pillBtn}>Cancel</button>
+              <button type="submit" style={{ ...styles.primaryMiniBtn, background: '#fbbf24', color: '#1e1b04' }}>
+                Drop Q&A
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -1143,6 +1229,9 @@ const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms?.['default-h
 
       <div style={styles.bottomDock}>
         <button onClick={() => setShowNoteModal(true)} style={styles.noteBtn}>{t.noteBtn}</button>
+        <button onClick={() => setShowQaModal(true)} style={{ ...styles.noteBtn, borderColor: '#fbbf24', color: '#fde047' }}>
+          ❓ Q&A
+        </button>
         <button onClick={() => setShowStageModal(true)} style={{ ...styles.noteBtn, borderColor: '#fb7185', color: '#fda4af' }}>
           {t.stageBtn}
         </button>
@@ -1174,12 +1263,14 @@ const styles = {
   langSelect: { background: '#0b0e14', border: '1px solid #334155', color: '#00e676', fontSize: '10.5px', fontWeight: '700', padding: '4px 6px', borderRadius: '999px', outline: 'none', cursor: 'pointer' },
   roomBar: { position: 'fixed', top: '54px', left: 0, right: 0, height: '42px', padding: '0 12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(11, 14, 20, 0.72)', backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(30, 41, 59, 0.6)', overflowX: 'auto', zIndex: 50 },
   roomChip: { display: 'flex', alignItems: 'center', gap: '5px', border: '1px solid #1e293b', fontSize: '11px', fontWeight: '700', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
+  pinnedBanner: { position: 'fixed', top: '102px', left: '50%', transform: 'translateX(-50%)', width: '92vw', maxWidth: '460px', background: 'linear-gradient(90deg, rgba(30, 27, 75, 0.96), rgba(49, 16, 47, 0.96))', border: '1.5px solid #fbbf24', borderRadius: '14px', padding: '9px 14px', zIndex: 65, boxShadow: '0 10px 28px rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' },
+  unpinBtn: { background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fde047', borderRadius: '999px', padding: '4px 9px', fontSize: '11px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap' },
   pillBtn: { background: '#1e293b', border: '1px solid #334155', color: '#e2e8f0', fontSize: '10.5px', fontWeight: '600', padding: '5px 8px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
   zoomControls: { position: 'fixed', bottom: '112px', right: '14px', display: 'flex', alignItems: 'center', background: 'rgba(19, 24, 34, 0.9)', border: '1px solid #334155', borderRadius: '999px', padding: '2px', zIndex: 45 },
   zoomBtn: { background: 'transparent', border: 'none', color: '#cbd5e1', fontWeight: '800', fontSize: '14px', padding: '3px 9px', cursor: 'pointer' },
   inviteDrawer: { position: 'fixed', top: '102px', right: '16px', background: '#131822', border: '1px solid #2d3748', borderRadius: '14px', padding: '12px 14px', zIndex: 60, boxShadow: '0 12px 30px rgba(0,0,0,0.6)' },
   codeChip: { background: '#0b0e14', border: '1px dashed #00e676', color: '#00e676', fontSize: '12px', fontWeight: '700', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer' },
-  toast: { position: 'fixed', top: '104px', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', border: '1px solid #38bdf8', color: '#f8fafc', fontSize: '12px', padding: '7px 15px', borderRadius: '999px', zIndex: 70, cursor: 'pointer', whiteSpace: 'nowrap', maxWidth: '90vw', overflow: 'hidden', textOverflow: 'ellipsis' },
+  toast: { position: 'fixed', top: '158px', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', border: '1px solid #38bdf8', color: '#f8fafc', fontSize: '12px', padding: '7px 15px', borderRadius: '999px', zIndex: 70, cursor: 'pointer', whiteSpace: 'nowrap', maxWidth: '90vw', overflow: 'hidden', textOverflow: 'ellipsis' },
   stackBanner: { position: 'fixed', bottom: '116px', left: '50%', transform: 'translateX(-50%)', background: '#0284c7', color: '#fff', fontSize: '12px', padding: '6px 14px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '10px', zIndex: 60 },
   emptyState: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', padding: '20px', maxWidth: '300px', pointerEvents: 'none' },
   ipStrip: { position: 'fixed', bottom: '74px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px', zIndex: 50 },
