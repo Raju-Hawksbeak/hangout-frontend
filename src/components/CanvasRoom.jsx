@@ -895,7 +895,9 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       <nav style={{ ...styles.roomBar, padding: isMobile ? '0 10px' : '0 20px', justifyContent: isMobile ? 'flex-start' : 'center' }}>
         {ROOM_THEMES.map((room) => {
           const isActive = room.id === canvasId;
-          const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id] || { label: room.id, hint: '' };
+         // const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id] || { label: room.id, hint: '' };
+      const rawRoomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id];
+const roomText = rawRoomText || (room.id === DEFAULT_CANVAS_ID ? { label: 'Thek Main', hint: fallbackRoom.hint } : { label: room.id, hint: '' });
           return (
             <button
               key={room.id}
