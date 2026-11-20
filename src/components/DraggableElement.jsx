@@ -199,7 +199,6 @@ export default function DraggableElement({
         zIndex: element.transform_data?.z_index || (isStacked ? 5 : 1)
       }}
     >
-      {/* Top-right Delete Button */}
       {onDelete && !isLockedByOther && (
         <button
           type="button"
@@ -237,7 +236,6 @@ export default function DraggableElement({
         </div>
       )}
 
-      {/* WIP Draft Badge */}
       {isWip && (
         <div
           style={{
@@ -257,7 +255,6 @@ export default function DraggableElement({
         </div>
       )}
 
-      {/* Threaded Reply Connector Badge */}
       {isStacked && (
         <div
           style={{
@@ -275,7 +272,6 @@ export default function DraggableElement({
         </div>
       )}
 
-      {/* 1. Audio Waveform Card */}
       {element.element_type === 'audio' && (
         <>
           <WaveformCard
@@ -298,4 +294,222 @@ export default function DraggableElement({
                 marginTop: '8px',
                 width: '100%',
                 background: isPlayingThread ? '#ef4444' : 'rgba(56, 189, 248, 0.16)',
-                border: '1px
+                border: '1px solid #38bdf8',
+                color: isPlayingThread ? '#fff' : '#7dd3fc',
+                fontSize: '11px',
+                fontWeight: '800',
+                padding: '5px 10px',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              {isPlayingThread
+                ? '⏹ Stop Thread Chain'
+                : `▶ Play Thread (${threadReplies.length + 1} clips)`}
+            </button>
+          )}
+        </>
+      )}
+
+      {element.element_type === 'video' && (
+        <div style={{ width: '270px' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              color: '#fb7185',
+              fontWeight: '800',
+              marginBottom: '6px',
+              paddingRight: '24px',
+              letterSpacing: '0.4px'
+            }}
+          >
+            🎬 STAGE CLIP • {meta.author || 'Member'}
+          </div>
+          {ytEmbedUrl ? (
+            <iframe
+              width="270"
+              height="155"
+              src={ytEmbedUrl}
+              title={meta.title || 'Stage Clip'}
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              style={{ borderRadius: '10px', display: 'block', background: '#000' }}
+            />
+          ) : (
+            <video
+              src={finalMediaUrl}
+              controls
+              controlsList={meta.stream_only !== false ? 'nodownload' : undefined}
+              playsInline
+              style={{
+                width: '270px',
+                maxHeight: '220px',
+                borderRadius: '10px',
+                display: 'block',
+                background: '#000'
+              }}
+            />
+          )}
+          {meta.title && (
+            <div style={{ fontSize: '12px', color: '#f1f5f9', fontWeight: '600', marginTop: '6px' }}>
+              {meta.title}
+            </div>
+          )}
+        </div>
+      )}
+
+      {isPhoto && (
+        <div style={{ width: '210px' }}>
+          <img
+            src={finalMediaUrl}
+            alt={meta.caption || 'Canvas snapshot'}
+            draggable={false}
+            style={{
+              width: '210px',
+              height: '190px',
+              objectFit: 'cover',
+              borderRadius: '6px',
+              display: 'block',
+              background: '#cbd5e1'
+            }}
+          />
+          <div
+            style={{
+              marginTop: '8px',
+              fontSize: '12px',
+              fontWeight: '700',
+              color: '#0f172a',
+              wordBreak: 'break-word'
+            }}
+          >
+            {meta.caption || 'Live Moment'}
+          </div>
+          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>
+            📸 @{meta.author || 'Member'}
+          </div>
+        </div>
+      )}
+
+      {element.element_type === 'text' && (
+        <div style={{ maxWidth: '220px', paddingRight: '18px' }}>
+          <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: '700', marginBottom: '4px' }}>
+            NOTE • {meta.author || 'Member'}
+          </div>
+          <div style={{ fontSize: '14px', color: '#f8fafc', lineHeight: '1.4', wordBreak: 'break-word' }}>
+            {meta.text || 'Sticky Note'}
+          </div>
+        </div>
+      )}
+
+      {onReact && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            marginTop: '8px',
+            flexWrap: 'wrap'
+          }}
+        >
+          {REACTION_EMOJIS.map((emoji) => {
+            const count = reactions[emoji] || 0;
+            return (
+              <button
+                key={emoji}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReact(element.id, emoji);
+                }}
+                style={{
+                  background: isPhoto
+                    ? count > 0
+                      ? '#e2e8f0'
+                      : '#f1f5f9'
+                    : count > 0
+                    ? 'rgba(56, 189, 248, 0.18)'
+                    : 'rgba(15, 23, 42, 0.7)',
+                  border: isPhoto
+                    ? '1px solid #cbd5e1'
+                    : count > 0
+                    ? '1px solid rgba(56, 189, 248, 0.5)'
+                    : '1px solid #334155',
+                  color: isPhoto ? '#0f172a' : '#e2e8f0',
+                  borderRadius: '999px',
+                  padding: '2px 7px',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '3px'
+                }}
+              >
+                <span>{emoji}</span>
+                {count > 0 && <span>{count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {ipProof && onInspectIp && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onInspectIp(element);
+          }}
+          title="View SHA-256 Proof of Creation Certificate"
+          style={{
+            marginTop: '7px',
+            width: '100%',
+            background: isPhoto ? '#e2e8f0' : 'rgba(0, 230, 118, 0.08)',
+            border: isPhoto ? '1px solid #cbd5e1' : '1px solid rgba(0, 230, 118, 0.3)',
+            color: isPhoto ? '#0f172a' : '#6ee7b7',
+            fontSize: '9.5px',
+            fontWeight: '700',
+            padding: '4px 8px',
+            borderRadius: '7px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+          <span>🛡️ {ipProof.short_hash}</span>
+          <span>{meta.stream_only !== false ? '🔒 Stream' : '⬇ DL'}</span>
+        </button>
+      )}
+
+      {hasTipHandle && onOpenTip && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenTip(element);
+          }}
+          style={{
+            marginTop: '6px',
+            width: '100%',
+            background: 'linear-gradient(90deg, #f59e0b, #eab308)',
+            border: 'none',
+            color: '#1e1b04',
+            fontSize: '11px',
+            fontWeight: '800',
+            padding: '5px 10px',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '5px'
+          }}
+        >
+          💸 Tip @{meta.author || 'Creator'}
+        </button>
+      )}
+    </div>
+  );
+}
