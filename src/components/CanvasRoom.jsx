@@ -654,4 +654,245 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         canvas_id: canvasId,
         element_type: 'audio',
         media_url,
-        media_
+        media_meta: {
+          peaks,
+          duration,
+          author: user.username,
+          tip_handle: myTipHandle || null,
+          is_wip: isWipMode,
+          stream_only: streamOnlyMode,
+          reply_to_author: stackTarget ? stackTarget.media_meta?.author || 'Member' : null,
+          reactions: {}
+        },
+        transform_data: {
+          x: dropX,
+          y: dropY,
+          scale: 1,
+          rotation: 0,
+          z_index: elements.length + 5,
+          is_stacked: Boolean(stackTarget)
+        },
+        parent_element_id: stackTarget ? stackTarget.id : null
+      };
+
+      const endpoint = stackTarget
+        ? `${API_BASE_URL}/canvases/elements/${stackTarget.id}/stack-audio`
+        : `${API_BASE_URL}/canvases/elements`;
+
+      const saveRes = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const savedElement = await saveRes.json();
+      if (!saveRes.ok) {
+        throw new Error(savedElement.detail || 'Failed to save voice drop');
+      }
+
+      setElements((prev) =>
+        prev.some((el) => el.id === savedElement.id) ? prev : [...prev, savedElement]
+      );
+
+      if (!stackTarget && socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({
+            type: 'NEW_ELEMENT',
+            canvas_id: canvasId,
+            element: savedElement
+          })
+        );
+      }
+
+      setStatusBanner(
+        stackTarget
+          ? `↳ Layered reply snapped under @${stackTarget.media_meta?.author || 'Member'}!`
+          : `🛡️ Dropped with ${savedElement.media_meta?.ip_proof?.short_hash || 'SHA-256 IP Proof'}!`
+      );
+      setStackTarget(null);
+    } catch (err) {
+      setStatusBanner(err.message || 'Upload failed.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!noteText.trim()) return;
+    try {
+      await persistCanvasElement('text', null, { text: noteText.trim() });
+      setNoteText('');
+      setShowNoteModal(false);
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not post note.');
+    }
+  };
+
+  const handleAddStageClip = async (e) => {
+    e.preventDefault();
+    if (!stageUrl.trim() && !stageFile) return;
+
+    setIsUploading(true);
+    try {
+      let finalVideoUrl = stageUrl.trim();
+      if (stageFile) {
+        finalVideoUrl = await uploadFileToBackend(stageFile, 'stage-clip.mp4');
+      }
+
+      await persistCanvasElement('video', finalVideoUrl, {
+        title: stageTitle.trim() || 'Standup / Stage Set'
+      });
+
+      setStageUrl('');
+      setStageTitle('');
+      setStageFile(null);
+      setShowStageModal(false);
+      setStatusBanner('🛡️ Stage Clip dropped with SHA-256 IP Proof!');
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not drop Stage Clip.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAddPhoto = async (e) => {
+    e.preventDefault();
+    if (!photoFile) return;
+
+    setIsUploading(true);
+    try {
+      const uploadedPhotoUrl = await uploadFileToBackend(photoFile, 'polaroid.jpg');
+      await persistCanvasElement('photo', uploadedPhotoUrl, {
+        caption: photoCaption.trim() || 'Live Vibe'
+      });
+
+      setPhotoFile(null);
+      setPhotoCaption('');
+      setShowPhotoModal(false);
+      setStatusBanner('Polaroid Photo pinned to Thek!');
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not upload photo.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div
+      onPointerDown={handleBoardPointerDown}
+      onPointerMove={handleBoardPointerMove}
+      onPointerUp={handleBoardPointerUp}
+      onPointerCancel={handleBoardPointerUp}
+      onWheel={handleBoardWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        ...styles.board,
+        backgroundColor: activeTheme.bgColor,
+        backgroundImage: `radial-gradient(${activeTheme.dotColor} 1px, transparent 1px)`,
+        backgroundPosition: `${pan.x}px ${pan.y}px`,
+        backgroundSize: `${24 * zoom}px ${24 * zoom}px`
+      }}
+    >
+      {/* Top Bar */}
+      <header style={styles.topBar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <span
+            style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: wsConnected ? activeTheme.accent : '#f59e0b'
+            }}
+          />
+          <div>
+            <div style={{ fontWeight: '900', fontSize: '14px', color: '#fff', letterSpacing: '-0.3px' }}>
+              Thek{' '}
+              <span
+                onClick={() => setStatusBanner(`🟢 Online in ${activeRoomCopy.label}: ${onlineUsers.join(', ')}`)}
+                style={{
+                  fontWeight: '700',
+                  fontSize: '10px',
+                  color: activeTheme.accent,
+                  background: 'rgba(255,255,255,0.08)',
+                  padding: '2px 6px',
+                  borderRadius: '999px',
+                  cursor: 'pointer'
+                }}
+              >
+                {onlineCount} {t.liveSuffix}
+              </span>
+            </div>
+            <div style={{ fontSize: '10px', color: '#94a3b8' }}>@{user.username}</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', overflowX: 'auto' }}>
+          <select
+            aria-label="Language"
+            value={lang}
+            onChange={(e) => changeLanguage(e.target.value)}
+            style={styles.langSelect}
+          >
+            {LANGUAGES.map((item) => (
+              <option key={item.code} value={item.code} style={{ background: '#0b0e14', color: '#f8fafc' }}>
+                🌐 {item.short}
+              </option>
+            ))}
+          </select>
+
+          {deferredInstallPrompt && (
+            <button
+              onClick={handleInstallPwa}
+              style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#00e676' }}
+            >
+              {t.installBtn}
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setTipInput(myTipHandle);
+              setTipError('');
+              setShowTipSetup(true);
+            }}
+            style={{
+              ...styles.pillBtn,
+              borderColor: myTipHandle ? '#f59e0b' : '#475569',
+              color: myTipHandle ? '#fcd34d' : '#cbd5e1'
+            }}
+          >
+            {myTipHandle ? t.tipOn : t.tipSetup}
+          </button>
+          <button onClick={handleTidyGrid} style={{ ...styles.pillBtn, borderColor: '#38bdf8', color: '#38bdf8' }}>
+            {t.tidyBtn}
+          </button>
+          <button onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
+            {t.invitesBtn} ({inviteCodes.length})
+          </button>
+          <button onClick={onLogout} style={{ ...styles.pillBtn, color: '#fca5a5' }}>
+            {t.exitBtn}
+          </button>
+        </div>
+      </header>
+
+      {/* Multi-Room Channel Switcher Bar */}
+      <nav style={styles.roomBar}>
+        {ROOM_THEMES.map((room) => {
+          const isActive = room.id === canvasId;
+          const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms[room.id];
+          return (
+            <button
+              key={room.id}
+              onClick={() => {
+                setCanvasId(room.id);
+                setStatusBanner(`${room.icon} ${roomText.label}`);
+              }}
+              style={{
+                ...styles.roomChip,
+                borderColor: isActive ? room.accent : '#1e293b',
+                background: isActive ? 'rgba(255,255,255,0.08)' : 'rgba(15, 23, 42, 0.7
