@@ -13,6 +13,12 @@ const ROOM_THEMES = [
   { id: 'chill-lounge', icon: '🌙', accent: '#a78bfa', dotColor: '#22183a', bgColor: '#0d0a16' }
 ];
 
+function getViewportTier(width) {
+  if (width <= 640) return 'mobile';
+  if (width <= 1024) return 'tablet';
+  return 'desktop';
+}
+
 function isValidTipHandle(value) {
   if (!value) return true;
   if (UPI_PATTERN.test(value)) return true;
@@ -46,6 +52,27 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const safeUser = user && user.id ? user : { id: token || 'member', username: user?.username || 'Member' };
   const [lang, setLang] = useState(getInitialLang);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
+  const [viewport, setViewport] = useState(() => ({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    tier: getViewportTier(window.innerWidth)
+  }));
+
+  useEffect(() => {
+    const onResize = () => {
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        tier: getViewportTier(window.innerWidth)
+      });
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const isMobile = viewport.tier === 'mobile';
+  const isTablet = viewport.tier === 'tablet';
 
   const [canvasId, setCanvasId] = useState(DEFAULT_CANVAS_ID);
   const [elements, setElements] = useState([]);
@@ -134,7 +161,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  const clampZoom = (val) => Math.min(1.5, Math.max(0.5, Number(val.toFixed(2))));
+  const clampZoom = (val) => Math.min(1.6, Math.max(0.45, Number(val.toFixed(2))));
 
   const handleBoardPointerDown = (e) => {
     if (
@@ -426,14 +453,25 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setActiveTipTarget(null);
   };
 
+  // Multi-Tier Tidy Grid: 1 col (Phone), 2 cols (Tablet), 3-5 cols (Big Monitor)
   const handleTidyGrid = async () => {
     if (elements.length === 0) return;
     resetViewport();
-    const cardWidth = 300;
+
+    const marginX = isMobile ? 16 : isTablet ? 24 : 36;
+    const marginY = pinnedElement ? 164 : 112;
     const cardHeight = 285;
-    const marginX = 24;
-    const marginY = 114;
-    const cols = Math.max(1, Math.floor((window.innerWidth - marginX * 2) / cardWidth));
+
+    let cols = 1;
+    let cardWidth = viewport.width - 32;
+
+    if (isTablet) {
+      cols = 2;
+      cardWidth = Math.floor((viewport.width - marginX * 2) / 2);
+    } else if (!isMobile) {
+      cardWidth = 320;
+      cols = Math.max(2, Math.min(5, Math.floor((viewport.width - marginX * 2) / cardWidth)));
+    }
 
     const arranged = elements.map((el, idx) => {
       const col = idx % cols;
@@ -457,7 +495,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     });
 
     setElements(arranged);
-    setStatusBanner('Grid arranged & saved permanently!');
+    setStatusBanner(`Arranged in ${cols}-column ${viewport.tier} grid!`);
 
     Promise.all(
       arranged.map((item) =>
@@ -505,11 +543,26 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     return uploadData.media_url;
   };
 
-  const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
+  const getSafeDropCoords = () => {
     const baseOffsetX = Math.max(0, -pan.x / zoom);
     const baseOffsetY = Math.max(0, -pan.y / zoom);
-    const randomX = Math.floor(baseOffsetX + 40 + Math.random() * Math.max(120, window.innerWidth - 320));
-    const randomY = Math.floor(baseOffsetY + 115 + Math.random() * Math.max(160, window.innerHeight - 320));
+    const maxSpreadX = Math.max(40, Math.min(viewport.width - 340, 1200));
+    const maxSpreadY = Math.max(120, Math.min(viewport.height - 320, 720));
+
+    if (isMobile) {
+      return {
+        x: Math.floor(baseOffsetX + 18 + Math.random() * 24),
+        y: Math.floor(baseOffsetY + 114 + Math.random() * 140)
+      };
+    }
+    return {
+      x: Math.floor(baseOffsetX + 48 + Math.random() * maxSpreadX),
+      y: Math.floor(baseOffsetY + 118 + Math.random() * maxSpreadY)
+    };
+  };
+
+  const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
+    const { x: randomX, y: randomY } = getSafeDropCoords();
 
     const payload = {
       canvas_id: canvasId,
@@ -613,16 +666,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       const peaks = generateDefaultPeaks(30);
       const media_url = await uploadFileToBackend(audioBlob, 'voice-drop.webm');
 
-      const baseOffsetX = Math.max(0, -pan.x / zoom);
-      const baseOffsetY = Math.max(0, -pan.y / zoom);
-      let dropX = Math.floor(baseOffsetX + 40 + Math.random() * Math.max(120, window.innerWidth - 310));
-      let dropY = Math.floor(baseOffsetY + 115 + Math.random() * Math.max(160, window.innerHeight - 300));
+      let { x: dropX, y: dropY } = getSafeDropCoords();
 
       if (stackTarget) {
         const existingReplies = elements.filter((el) => el.parent_element_id === stackTarget.id);
-        const parentX = stackTarget.transform_data?.x ?? 60;
+        const parentX = stackTarget.transform_data?.x ?? 24;
         const parentY = stackTarget.transform_data?.y ?? 120;
-        dropX = Math.max(16, parentX + 18);
+        dropX = Math.max(12, parentX + 16);
         dropY = parentY + 145 * (existingReplies.length + 1);
       }
 
@@ -743,6 +793,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
+  const dockClearance = isMobile ? 156 : 114;
+
   return (
     <div
       onPointerDown={handleBoardPointerDown}
@@ -761,19 +813,20 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         backgroundSize: `${24 * zoom}px ${24 * zoom}px`
       }}
     >
-      <header style={styles.topBar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+      {/* Adaptive Top Header */}
+      <header style={{ ...styles.topBar, padding: isMobile ? '0 8px' : '0 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <span
             style={{
-              width: '8px',
-              height: '8px',
+              width: '9px',
+              height: '9px',
               borderRadius: '50%',
               background: wsConnected ? activeTheme.accent : '#f59e0b'
             }}
           />
           <div>
-            <div style={{ fontWeight: '900', fontSize: '14px', color: '#fff', letterSpacing: '-0.3px' }}>
-              Thek{' '}
+            <div style={{ fontWeight: '900', fontSize: isMobile ? '13.5px' : '15px', color: '#fff', letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>Thek</span>
               <span
                 onClick={() => setStatusBanner(`🟢 Online in ${activeRoomCopy.label}: ${onlineUsers.join(', ')}`)}
                 style={{
@@ -781,19 +834,19 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
                   fontSize: '10px',
                   color: activeTheme.accent,
                   background: 'rgba(255,255,255,0.08)',
-                  padding: '2px 6px',
+                  padding: '2px 7px',
                   borderRadius: '999px',
                   cursor: 'pointer'
                 }}
               >
-                {onlineCount} {t.liveSuffix}
+                {onlineCount} {isMobile ? '' : t.liveSuffix}
               </span>
             </div>
             <div style={{ fontSize: '10px', color: '#94a3b8' }}>@{safeUser.username}</div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: isMobile ? '4px' : '8px', alignItems: 'center', overflowX: 'auto', paddingLeft: '8px' }}>
           <select
             aria-label="Language"
             value={lang}
@@ -802,14 +855,14 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           >
             {LANGUAGES.map((item) => (
               <option key={item.code} value={item.code} style={{ background: '#0b0e14', color: '#f8fafc' }}>
-                🌐 {item.short}
+                {isMobile ? item.short : `🌐 ${item.short}`}
               </option>
             ))}
           </select>
 
           {deferredInstallPrompt && (
             <button onClick={handleInstallPwa} style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#00e676' }}>
-              {t.installBtn}
+              {isMobile ? '📲' : t.installBtn}
             </button>
           )}
           <button
@@ -824,21 +877,22 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               color: myTipHandle ? '#fcd34d' : '#cbd5e1'
             }}
           >
-            {myTipHandle ? t.tipOn : t.tipSetup}
+            {isMobile ? '💸' : myTipHandle ? t.tipOn : t.tipSetup}
           </button>
           <button onClick={handleTidyGrid} style={{ ...styles.pillBtn, borderColor: '#38bdf8', color: '#38bdf8' }}>
-            {t.tidyBtn}
+            {isMobile ? '⊞' : t.tidyBtn}
           </button>
           <button onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
-            {t.invitesBtn} ({inviteCodes.length})
+            {isMobile ? `🔑${inviteCodes.length}` : `${t.invitesBtn} (${inviteCodes.length})`}
           </button>
           <button onClick={onLogout} style={{ ...styles.pillBtn, color: '#fca5a5' }}>
-            {t.exitBtn}
+            {isMobile ? '✕' : t.exitBtn}
           </button>
         </div>
       </header>
 
-      <nav style={styles.roomBar}>
+      {/* Room Switcher Bar */}
+      <nav style={{ ...styles.roomBar, padding: isMobile ? '0 10px' : '0 20px', justifyContent: isMobile ? 'flex-start' : 'center' }}>
         {ROOM_THEMES.map((room) => {
           const isActive = room.id === canvasId;
           const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id] || { label: room.id, hint: '' };
@@ -863,6 +917,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         })}
       </nav>
 
+      {/* Pinned Live Stage Banner */}
       {pinnedElement && (
         <div style={styles.pinnedBanner}>
           <div style={{ overflow: 'hidden' }}>
@@ -873,20 +928,17 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               {pinnedElement.media_meta?.text || pinnedElement.media_meta?.title || pinnedElement.media_meta?.caption || '🎙 Live Audio / Stage Spotlight'}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => handlePinElement(null)}
-            style={styles.unpinBtn}
-          >
+          <button type="button" onClick={() => handlePinElement(null)} style={styles.unpinBtn}>
             Unpin
           </button>
         </div>
       )}
 
+      {/* Invite Drawer */}
       {showInvites && (
         <div style={styles.inviteDrawer}>
-          <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '4px', color: '#00e676' }}>
-            Tap a code to copy Thek Invite Link:
+          <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#00e676' }}>
+            Tap a code to copy Invite Link:
           </div>
           {inviteCodes.length > 0 ? (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -902,15 +954,17 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
+      {/* Toast */}
       {statusBanner && (
         <div style={styles.toast} onClick={() => setStatusBanner('')}>
           {statusBanner}
         </div>
       )}
 
+      {/* Stack Banner */}
       {stackTarget && (
-        <div style={{ ...styles.stackBanner, bottom: '116px' }}>
-          <span>↳ Layering reply under <b>@{stackTarget.media_meta?.author || 'Voice Drop'}</b></span>
+        <div style={{ ...styles.stackBanner, bottom: `${dockClearance + 4}px` }}>
+          <span>↳ Reply under <b>@{stackTarget.media_meta?.author || 'Member'}</b></span>
           <button
             onClick={() => setStackTarget(null)}
             style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
@@ -920,15 +974,17 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
+      {/* Empty Hint */}
       {elements.length === 0 && (
         <div style={styles.emptyState}>
-          <div style={{ fontSize: '18px', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
+          <div style={{ fontSize: isMobile ? '17px' : '20px', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
             {activeTheme.icon} {activeRoomCopy.label} {t.quietSuffix}
           </div>
-          <div style={{ fontSize: '13px', color: '#64748b' }}>{activeRoomCopy.hint}</div>
+          <div style={{ fontSize: isMobile ? '12.5px' : '14px', color: '#64748b' }}>{activeRoomCopy.hint}</div>
         </div>
       )}
 
+      {/* Spatial Canvas */}
       <div
         style={{
           position: 'absolute',
@@ -981,14 +1037,16 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       </div>
 
-      <div style={{ ...styles.zoomControls, bottom: '112px' }}>
+      {/* Floating Zoom Controls */}
+      <div style={{ ...styles.zoomControls, bottom: `${dockClearance}px`, right: isMobile ? '10px' : '22px' }}>
         <button type="button" onClick={() => setZoom((z) => clampZoom(z - 0.15))} style={styles.zoomBtn}>−</button>
-        <button type="button" onClick={resetViewport} style={{ ...styles.zoomBtn, fontSize: '10px', padding: '4px 7px' }}>
+        <button type="button" onClick={resetViewport} style={{ ...styles.zoomBtn, fontSize: '10.5px', padding: '4px 7px' }}>
           {Math.round(zoom * 100)}%
         </button>
         <button type="button" onClick={() => setZoom((z) => clampZoom(z + 0.15))} style={styles.zoomBtn}>+</button>
       </div>
 
+      {/* Modals */}
       {activeIpTarget && (
         <div style={styles.modalBackdrop} onClick={() => setActiveIpTarget(null)}>
           <div onClick={(e) => e.stopPropagation()} style={styles.noteModal}>
@@ -1025,7 +1083,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       {showTipSetup && (
         <div style={styles.modalBackdrop} onClick={() => setShowTipSetup(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={handleSaveTipSetup} style={styles.noteModal}>
-            <div style={{ fontWeight: '800', fontSize: '15px', marginBottom: '4px', color: '#fcd34d' }}>
+            <div style={{ fontWeight: '800', fontSize: '15px', marginBottom: '8px', color: '#fcd34d' }}>
               💸 Creator Tip Jar Setup (0% Fee)
             </div>
             <input
@@ -1202,7 +1260,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
-      <div style={styles.ipStrip}>
+      {/* Creator IP Protection Quick-Toggle Strip */}
+      <div style={{ ...styles.ipStrip, bottom: isMobile ? '118px' : '76px' }}>
         <button
           type="button"
           onClick={() => setIsWipMode(!isWipMode)}
@@ -1227,17 +1286,23 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </button>
       </div>
 
-      <div style={styles.bottomDock}>
-        <button onClick={() => setShowNoteModal(true)} style={styles.noteBtn}>{t.noteBtn}</button>
-        <button onClick={() => setShowQaModal(true)} style={{ ...styles.noteBtn, borderColor: '#fbbf24', color: '#fde047' }}>
-          ❓ Q&A
-        </button>
-        <button onClick={() => setShowStageModal(true)} style={{ ...styles.noteBtn, borderColor: '#fb7185', color: '#fda4af' }}>
-          {t.stageBtn}
-        </button>
-        <button onClick={() => setShowPhotoModal(true)} style={{ ...styles.noteBtn, borderColor: '#38bdf8', color: '#7dd3fc' }}>
-          {t.photoBtn}
-        </button>
+      {/* Multi-Device Bottom Dock (2-Row on Mobile, Single Centered Pill on Tablet & Big Monitor) */}
+      <div style={isMobile ? styles.mobileDock : styles.bottomDock}>
+        <div style={isMobile ? styles.mobileActionRow : styles.desktopActionRow}>
+          <button onClick={() => setShowNoteModal(true)} style={isMobile ? styles.mobileMiniBtn : styles.noteBtn}>
+            {isMobile ? '📝 Note' : t.noteBtn}
+          </button>
+          <button onClick={() => setShowQaModal(true)} style={isMobile ? { ...styles.mobileMiniBtn, borderColor: '#fbbf24', color: '#fde047' } : { ...styles.noteBtn, borderColor: '#fbbf24', color: '#fde047' }}>
+            ❓ Q&A
+          </button>
+          <button onClick={() => setShowStageModal(true)} style={isMobile ? { ...styles.mobileMiniBtn, borderColor: '#fb7185', color: '#fda4af' } : { ...styles.noteBtn, borderColor: '#fb7185', color: '#fda4af' }}>
+            {isMobile ? '🎬 Clip' : t.stageBtn}
+          </button>
+          <button onClick={() => setShowPhotoModal(true)} style={isMobile ? { ...styles.mobileMiniBtn, borderColor: '#38bdf8', color: '#7dd3fc' } : { ...styles.noteBtn, borderColor: '#38bdf8', color: '#7dd3fc' }}>
+            {isMobile ? '📸 Photo' : t.photoBtn}
+          </button>
+        </div>
+
         <button
           onPointerDown={startRecording}
           onPointerUp={stopRecording}
@@ -1245,7 +1310,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           disabled={isUploading}
           className={isRecording ? 'recording-pulse' : ''}
           style={{
-            ...styles.voiceBtn,
+            ...(isMobile ? styles.mobileVoiceBtn : styles.voiceBtn),
             background: isRecording ? '#ff1744' : isUploading ? '#475569' : activeTheme.accent,
             color: isRecording ? '#ffffff' : '#051b11'
           }}
@@ -1258,28 +1323,33 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 }
 
 const styles = {
-  board: { position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', touchAction: 'none', cursor: 'grab', transition: 'background-color 0.25s ease' },
-  topBar: { position: 'fixed', top: 0, left: 0, right: 0, height: '54px', padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(11, 14, 20, 0.88)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #1e293b', zIndex: 55 },
-  langSelect: { background: '#0b0e14', border: '1px solid #334155', color: '#00e676', fontSize: '10.5px', fontWeight: '700', padding: '4px 6px', borderRadius: '999px', outline: 'none', cursor: 'pointer' },
-  roomBar: { position: 'fixed', top: '54px', left: 0, right: 0, height: '42px', padding: '0 12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(11, 14, 20, 0.72)', backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(30, 41, 59, 0.6)', overflowX: 'auto', zIndex: 50 },
-  roomChip: { display: 'flex', alignItems: 'center', gap: '5px', border: '1px solid #1e293b', fontSize: '11px', fontWeight: '700', padding: '5px 11px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
-  pinnedBanner: { position: 'fixed', top: '102px', left: '50%', transform: 'translateX(-50%)', width: '92vw', maxWidth: '460px', background: 'linear-gradient(90deg, rgba(30, 27, 75, 0.96), rgba(49, 16, 47, 0.96))', border: '1.5px solid #fbbf24', borderRadius: '14px', padding: '9px 14px', zIndex: 65, boxShadow: '0 10px 28px rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' },
-  unpinBtn: { background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fde047', borderRadius: '999px', padding: '4px 9px', fontSize: '11px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap' },
-  pillBtn: { background: '#1e293b', border: '1px solid #334155', color: '#e2e8f0', fontSize: '10.5px', fontWeight: '600', padding: '5px 8px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
-  zoomControls: { position: 'fixed', bottom: '112px', right: '14px', display: 'flex', alignItems: 'center', background: 'rgba(19, 24, 34, 0.9)', border: '1px solid #334155', borderRadius: '999px', padding: '2px', zIndex: 45 },
+  board: { position: 'relative', width: '100vw', height: '100dvh', overflow: 'hidden', touchAction: 'none', cursor: 'grab', transition: 'background-color 0.25s ease' },
+  topBar: { position: 'fixed', top: 0, left: 0, right: 0, height: '54px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(11, 14, 20, 0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #1e293b', zIndex: 55 },
+  langSelect: { background: '#0b0e14', border: '1px solid #334155', color: '#00e676', fontSize: '10.5px', fontWeight: '700', padding: '5px 7px', borderRadius: '999px', outline: 'none', cursor: 'pointer' },
+  roomBar: { position: 'fixed', top: '54px', left: 0, right: 0, height: '42px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(11, 14, 20, 0.78)', backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(30, 41, 59, 0.6)', overflowX: 'auto', zIndex: 50 },
+  roomChip: { display: 'flex', alignItems: 'center', gap: '5px', border: '1px solid #1e293b', fontSize: '11.5px', fontWeight: '700', padding: '5px 12px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
+  pinnedBanner: { position: 'fixed', top: '102px', left: '50%', transform: 'translateX(-50%)', width: 'min(520px, 92vw)', background: 'linear-gradient(90deg, rgba(30, 27, 75, 0.96), rgba(49, 16, 47, 0.96))', border: '1.5px solid #fbbf24', borderRadius: '14px', padding: '9px 14px', zIndex: 65, boxShadow: '0 10px 28px rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' },
+  unpinBtn: { background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fde047', borderRadius: '999px', padding: '4px 10px', fontSize: '11px', fontWeight: '800', cursor: 'pointer', whiteSpace: 'nowrap' },
+  pillBtn: { background: '#1e293b', border: '1px solid #334155', color: '#e2e8f0', fontSize: '11px', fontWeight: '700', padding: '5px 10px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
+  zoomControls: { position: 'fixed', display: 'flex', alignItems: 'center', background: 'rgba(19, 24, 34, 0.92)', border: '1px solid #334155', borderRadius: '999px', padding: '3px', zIndex: 45 },
   zoomBtn: { background: 'transparent', border: 'none', color: '#cbd5e1', fontWeight: '800', fontSize: '14px', padding: '3px 9px', cursor: 'pointer' },
-  inviteDrawer: { position: 'fixed', top: '102px', right: '16px', background: '#131822', border: '1px solid #2d3748', borderRadius: '14px', padding: '12px 14px', zIndex: 60, boxShadow: '0 12px 30px rgba(0,0,0,0.6)' },
+  inviteDrawer: { position: 'fixed', top: '102px', right: '16px', width: 'min(360px, 90vw)', background: '#131822', border: '1px solid #2d3748', borderRadius: '14px', padding: '12px 14px', zIndex: 60, boxShadow: '0 12px 30px rgba(0,0,0,0.6)' },
   codeChip: { background: '#0b0e14', border: '1px dashed #00e676', color: '#00e676', fontSize: '12px', fontWeight: '700', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer' },
-  toast: { position: 'fixed', top: '158px', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', border: '1px solid #38bdf8', color: '#f8fafc', fontSize: '12px', padding: '7px 15px', borderRadius: '999px', zIndex: 70, cursor: 'pointer', whiteSpace: 'nowrap', maxWidth: '90vw', overflow: 'hidden', textOverflow: 'ellipsis' },
-  stackBanner: { position: 'fixed', bottom: '116px', left: '50%', transform: 'translateX(-50%)', background: '#0284c7', color: '#fff', fontSize: '12px', padding: '6px 14px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '10px', zIndex: 60 },
-  emptyState: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', padding: '20px', maxWidth: '300px', pointerEvents: 'none' },
-  ipStrip: { position: 'fixed', bottom: '74px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px', zIndex: 50 },
-  ipChip: { background: 'rgba(11, 14, 20, 0.88)', border: '1px solid #334155', fontSize: '10px', fontWeight: '700', padding: '3px 9px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
-  bottomDock: { position: 'fixed', bottom: '16px', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(19, 24, 34, 0.92)', backdropFilter: 'blur(14px)', padding: '8px 12px', borderRadius: '999px', border: '1px solid #2d3748', boxShadow: '0 14px 35px rgba(0,0,0,0.7)', zIndex: 50, maxWidth: '96vw', overflowX: 'auto' },
-  noteBtn: { background: '#1e293b', border: '1px solid #334155', color: '#f8fafc', fontWeight: '700', fontSize: '12px', padding: '10px 13px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
-  voiceBtn: { border: 'none', fontWeight: '800', fontSize: '12px', padding: '10px 18px', borderRadius: '999px', cursor: 'pointer', userSelect: 'none', touchAction: 'none', whiteSpace: 'nowrap' },
-  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 80, padding: '16px' },
-  noteModal: { width: '100%', maxWidth: '350px', background: '#131822', border: '1px solid #2d3748', borderRadius: '16px', padding: '18px' },
+  toast: { position: 'fixed', top: '158px', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', border: '1px solid #38bdf8', color: '#f8fafc', fontSize: '12px', padding: '6px 16px', borderRadius: '999px', zIndex: 70, cursor: 'pointer', whiteSpace: 'nowrap', maxWidth: '92vw', overflow: 'hidden', textOverflow: 'ellipsis' },
+  stackBanner: { position: 'fixed', left: '50%', transform: 'translateX(-50%)', background: '#0284c7', color: '#fff', fontSize: '12px', padding: '6px 14px', borderRadius: '999px', display: 'flex', alignItems: 'center', gap: '10px', zIndex: 60, whiteSpace: 'nowrap' },
+  emptyState: { position: 'absolute', top: '48%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', padding: '20px', width: 'min(380px, 88vw)', pointerEvents: 'none' },
+  ipStrip: { position: 'fixed', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '8px', zIndex: 50 },
+  ipChip: { background: 'rgba(11, 14, 20, 0.9)', border: '1px solid #334155', fontSize: '10.5px', fontWeight: '700', padding: '4px 11px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
+  bottomDock: { position: 'fixed', bottom: '18px', left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(19, 24, 34, 0.94)', backdropFilter: 'blur(14px)', padding: '9px 14px', borderRadius: '999px', border: '1px solid #2d3748', boxShadow: '0 14px 35px rgba(0,0,0,0.7)', zIndex: 50 },
+  desktopActionRow: { display: 'flex', alignItems: 'center', gap: '8px' },
+  mobileDock: { position: 'fixed', bottom: '10px', left: '10px', right: '10px', display: 'flex', flexDirection: 'column', gap: '7px', background: 'rgba(19, 24, 34, 0.95)', backdropFilter: 'blur(14px)', padding: '9px 10px', borderRadius: '18px', border: '1px solid #2d3748', boxShadow: '0 14px 35px rgba(0,0,0,0.75)', zIndex: 50 },
+  mobileActionRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' },
+  mobileMiniBtn: { background: '#1e293b', border: '1px solid #334155', color: '#f8fafc', fontWeight: '700', fontSize: '11px', padding: '8px 4px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center', whiteSpace: 'nowrap' },
+  mobileVoiceBtn: { width: '100%', border: 'none', fontWeight: '800', fontSize: '13px', padding: '12px 16px', borderRadius: '12px', cursor: 'pointer', userSelect: 'none', touchAction: 'none', textAlign: 'center' },
+  noteBtn: { background: '#1e293b', border: '1px solid #334155', color: '#f8fafc', fontWeight: '700', fontSize: '12.5px', padding: '10px 14px', borderRadius: '999px', cursor: 'pointer', whiteSpace: 'nowrap' },
+  voiceBtn: { border: 'none', fontWeight: '800', fontSize: '12.5px', padding: '10px 20px', borderRadius: '999px', cursor: 'pointer', userSelect: 'none', touchAction: 'none', whiteSpace: 'nowrap' },
+  modalBackdrop: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.68)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 80, padding: '16px' },
+  noteModal: { width: '100%', maxWidth: '380px', background: '#131822', border: '1px solid #2d3748', borderRadius: '16px', padding: '20px' },
   certBox: { background: '#0b0e14', border: '1px solid #1e293b', borderRadius: '10px', padding: '10px 12px', fontSize: '11.5px', color: '#e2e8f0', lineHeight: '1.6' },
   noteInput: { width: '100%', padding: '11px 12px', borderRadius: '10px', border: '1px solid #334155', background: '#0b0e14', color: '#fff', fontSize: '14px', outline: 'none', boxSizing: 'border-box' },
   primaryMiniBtn: { background: '#00e676', border: 'none', color: '#051b11', fontWeight: '800', fontSize: '12px', padding: '7px 14px', borderRadius: '999px', cursor: 'pointer' }
