@@ -35,6 +35,7 @@ export default function DraggableElement({
   onDelete,
   onOpenTip,
   onInspectIp,
+  onPinCard,
   onReact
 }) {
   const initialPos = element.transform_data || { x: 60, y: 110 };
@@ -162,6 +163,7 @@ export default function DraggableElement({
   const isPhoto = element.element_type === 'photo';
   const isStacked = Boolean(element.transform_data?.is_stacked || element.parent_element_id);
   const isWip = Boolean(meta.is_wip);
+  const isQa = Boolean(meta.is_qa);
   const ipProof = meta.ip_proof || null;
 
   return (
@@ -177,6 +179,8 @@ export default function DraggableElement({
         opacity: isLockedByOther ? 0.78 : 1,
         border: isLockedByOther
           ? '2px dashed #ff9100'
+          : isQa
+          ? '1.5px solid #fbbf24'
           : isWip
           ? '1.5px dashed #eab308'
           : element.element_type === 'video'
@@ -188,6 +192,8 @@ export default function DraggableElement({
           : '1px solid #263042',
         boxShadow: isLockedByOther
           ? '0 0 16px rgba(255, 145, 0, 0.35)'
+          : isQa
+          ? '0 10px 26px rgba(251, 191, 36, 0.22)'
           : isStacked
           ? '0 10px 26px rgba(56, 189, 248, 0.22)'
           : '0 10px 28px rgba(0, 0, 0, 0.55)',
@@ -392,9 +398,16 @@ export default function DraggableElement({
       )}
 
       {element.element_type === 'text' && (
-        <div style={{ maxWidth: '220px', paddingRight: '18px' }}>
-          <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: '700', marginBottom: '4px' }}>
-            NOTE • {meta.author || 'Member'}
+        <div style={{ maxWidth: '230px', paddingRight: '18px' }}>
+          <div
+            style={{
+              fontSize: '10px',
+              color: isQa ? '#fbbf24' : '#a78bfa',
+              fontWeight: '800',
+              marginBottom: '4px'
+            }}
+          >
+            {isQa ? '❓ LISTENER Q&A' : 'NOTE'} • @{meta.author || 'Member'}
           </div>
           <div style={{ fontSize: '14px', color: '#f8fafc', lineHeight: '1.4', wordBreak: 'break-word' }}>
             {meta.text || 'Sticky Note'}
@@ -480,6 +493,30 @@ export default function DraggableElement({
         >
           <span>🛡️ {ipProof.short_hash}</span>
           <span>{meta.stream_only !== false ? '🔒 Stream' : '⬇ DL'}</span>
+        </button>
+      )}
+
+      {onPinCard && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onPinCard(element);
+          }}
+          style={{
+            marginTop: '6px',
+            width: '100%',
+            background: isPhoto ? '#e2e8f0' : 'rgba(251, 191, 36, 0.12)',
+            border: isPhoto ? '1px solid #cbd5e1' : '1px solid rgba(251, 191, 36, 0.4)',
+            color: isPhoto ? '#0f172a' : '#fde047',
+            fontSize: '10px',
+            fontWeight: '800',
+            padding: '4px 8px',
+            borderRadius: '7px',
+            cursor: 'pointer'
+          }}
+        >
+          📌 Pin to Live Stage
         </button>
       )}
 
