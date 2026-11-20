@@ -34,6 +34,7 @@ export default function DraggableElement({
   onStackAudio,
   onDelete,
   onOpenTip,
+  onInspectIp,
   onReact
 }) {
   const initialPos = element.transform_data || { x: 60, y: 110 };
@@ -74,7 +75,7 @@ export default function DraggableElement({
     ) {
       return;
     }
-    e.stopPropagation(); // Prevent board panning while dragging a card
+    e.stopPropagation();
     if (isLockedByOther) return;
 
     const currentZoom = zoomRef.current || 1;
@@ -160,6 +161,8 @@ export default function DraggableElement({
   const hasTipHandle = Boolean(meta.tip_handle);
   const isPhoto = element.element_type === 'photo';
   const isStacked = Boolean(element.transform_data?.is_stacked || element.parent_element_id);
+  const isWip = Boolean(meta.is_wip);
+  const ipProof = meta.ip_proof || null;
 
   return (
     <div
@@ -174,6 +177,8 @@ export default function DraggableElement({
         opacity: isLockedByOther ? 0.78 : 1,
         border: isLockedByOther
           ? '2px dashed #ff9100'
+          : isWip
+          ? '1.5px dashed #eab308'
           : element.element_type === 'video'
           ? '1px solid #f43f5e'
           : isPhoto
@@ -232,6 +237,26 @@ export default function DraggableElement({
         </div>
       )}
 
+      {/* WIP Draft Badge */}
+      {isWip && (
+        <div
+          style={{
+            display: 'inline-block',
+            fontSize: '9.5px',
+            fontWeight: '800',
+            color: '#fde047',
+            background: 'rgba(234, 179, 8, 0.16)',
+            border: '1px solid rgba(234, 179, 8, 0.45)',
+            padding: '2px 7px',
+            borderRadius: '999px',
+            marginBottom: '6px',
+            marginRight: '22px'
+          }}
+        >
+          🚧 WIP • Raw Draft
+        </div>
+      )}
+
       {/* Threaded Reply Connector Badge */}
       {isStacked && (
         <div
@@ -273,197 +298,4 @@ export default function DraggableElement({
                 marginTop: '8px',
                 width: '100%',
                 background: isPlayingThread ? '#ef4444' : 'rgba(56, 189, 248, 0.16)',
-                border: '1px solid #38bdf8',
-                color: isPlayingThread ? '#fff' : '#7dd3fc',
-                fontSize: '11px',
-                fontWeight: '800',
-                padding: '5px 10px',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              {isPlayingThread
-                ? '⏹ Stop Thread Chain'
-                : `▶ Play Thread (${threadReplies.length + 1} clips)`}
-            </button>
-          )}
-        </>
-      )}
-
-      {/* 2. Stage Clip */}
-      {element.element_type === 'video' && (
-        <div style={{ width: '270px' }}>
-          <div
-            style={{
-              fontSize: '10px',
-              color: '#fb7185',
-              fontWeight: '800',
-              marginBottom: '6px',
-              paddingRight: '24px',
-              letterSpacing: '0.4px'
-            }}
-          >
-            🎬 STAGE CLIP • {meta.author || 'Member'}
-          </div>
-          {ytEmbedUrl ? (
-            <iframe
-              width="270"
-              height="155"
-              src={ytEmbedUrl}
-              title={meta.title || 'Stage Clip'}
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              style={{ borderRadius: '10px', display: 'block', background: '#000' }}
-            />
-          ) : (
-            <video
-              src={finalMediaUrl}
-              controls
-              playsInline
-              style={{
-                width: '270px',
-                maxHeight: '220px',
-                borderRadius: '10px',
-                display: 'block',
-                background: '#000'
-              }}
-            />
-          )}
-          {meta.title && (
-            <div style={{ fontSize: '12px', color: '#f1f5f9', fontWeight: '600', marginTop: '6px' }}>
-              {meta.title}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 3. Polaroid Photo Card */}
-      {isPhoto && (
-        <div style={{ width: '210px' }}>
-          <img
-            src={finalMediaUrl}
-            alt={meta.caption || 'Canvas snapshot'}
-            draggable={false}
-            style={{
-              width: '210px',
-              height: '190px',
-              objectFit: 'cover',
-              borderRadius: '6px',
-              display: 'block',
-              background: '#cbd5e1'
-            }}
-          />
-          <div
-            style={{
-              marginTop: '8px',
-              fontSize: '12px',
-              fontWeight: '700',
-              color: '#0f172a',
-              wordBreak: 'break-word'
-            }}
-          >
-            {meta.caption || 'Live Moment'}
-          </div>
-          <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600', marginTop: '2px' }}>
-            📸 @{meta.author || 'Member'}
-          </div>
-        </div>
-      )}
-
-      {/* 4. Sticky Note Card */}
-      {element.element_type === 'text' && (
-        <div style={{ maxWidth: '220px', paddingRight: '18px' }}>
-          <div style={{ fontSize: '10px', color: '#a78bfa', fontWeight: '700', marginBottom: '4px' }}>
-            NOTE • {meta.author || 'Member'}
-          </div>
-          <div style={{ fontSize: '14px', color: '#f8fafc', lineHeight: '1.4', wordBreak: 'break-word' }}>
-            {meta.text || 'Sticky Note'}
-          </div>
-        </div>
-      )}
-
-      {/* Live Emoji Reactions Bar */}
-      {onReact && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            marginTop: '8px',
-            flexWrap: 'wrap'
-          }}
-        >
-          {REACTION_EMOJIS.map((emoji) => {
-            const count = reactions[emoji] || 0;
-            return (
-              <button
-                key={emoji}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onReact(element.id, emoji);
-                }}
-                style={{
-                  background: isPhoto
-                    ? count > 0
-                      ? '#e2e8f0'
-                      : '#f1f5f9'
-                    : count > 0
-                    ? 'rgba(56, 189, 248, 0.18)'
-                    : 'rgba(15, 23, 42, 0.7)',
-                  border: isPhoto
-                    ? '1px solid #cbd5e1'
-                    : count > 0
-                    ? '1px solid rgba(56, 189, 248, 0.5)'
-                    : '1px solid #334155',
-                  color: isPhoto ? '#0f172a' : '#e2e8f0',
-                  borderRadius: '999px',
-                  padding: '2px 7px',
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '3px'
-                }}
-              >
-                <span>{emoji}</span>
-                {count > 0 && <span>{count}</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Zero-Commission Creator Tip Action */}
-      {hasTipHandle && onOpenTip && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenTip(element);
-          }}
-          style={{
-            marginTop: '8px',
-            width: '100%',
-            background: 'linear-gradient(90deg, #f59e0b, #eab308)',
-            border: 'none',
-            color: '#1e1b04',
-            fontSize: '11px',
-            fontWeight: '800',
-            padding: '5px 10px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '5px'
-          }}
-        >
-          💸 Tip @{meta.author || 'Creator'}
-        </button>
-      )}
-    </div>
-  );
-}
+                border: '1px
