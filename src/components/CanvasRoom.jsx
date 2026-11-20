@@ -1,48 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL, WS_BASE_URL, DEFAULT_CANVAS_ID } from '../config';
 import { extractWaveformPeaks } from '../audioUtils';
+import { LANGUAGES, TRANSLATIONS, getInitialLang } from '../i18n';
 import DraggableElement from './DraggableElement';
 
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
 const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
 
-const ROOMS = [
-  {
-    id: DEFAULT_CANVAS_ID,
-    label: 'Thek Main',
-    icon: '⚡',
-    accent: '#00e676',
-    dotColor: '#1e293b',
-    bgColor: '#0b0e14',
-    hint: 'Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note!'
-  },
-  {
-    id: 'standup-stage',
-    label: 'Standup Stage',
-    icon: '🎤',
-    accent: '#fb7185',
-    dotColor: '#31101b',
-    bgColor: '#12090d',
-    hint: 'Drop your 1-min standup bits, crowd-work clips, or punchline notes!'
-  },
-  {
-    id: 'baul-jam',
-    label: 'Baul & Folk Jam',
-    icon: '🎸',
-    accent: '#fbbf24',
-    dotColor: '#2d210b',
-    bgColor: '#120e08',
-    hint: 'Drop an acoustic riff or vocal alaap, then hit + Layer Sound to jam together!'
-  },
-  {
-    id: 'chill-lounge',
-    label: 'Chill Lounge',
-    icon: '🌙',
-    accent: '#a78bfa',
-    dotColor: '#22183a',
-    bgColor: '#0d0a16',
-    hint: 'Late-night adda, poetry drops, and raw backstage Polaroids.'
-  }
+const ROOM_THEMES = [
+  { id: DEFAULT_CANVAS_ID, icon: '⚡', accent: '#00e676', dotColor: '#1e293b', bgColor: '#0b0e14' },
+  { id: 'standup-stage', icon: '🎤', accent: '#fb7185', dotColor: '#31101b', bgColor: '#12090d' },
+  { id: 'baul-jam', icon: '🎸', accent: '#fbbf24', dotColor: '#2d210b', bgColor: '#120e08' },
+  { id: 'chill-lounge', icon: '🌙', accent: '#a78bfa', dotColor: '#22183a', bgColor: '#0d0a16' }
 ];
 
 function isValidTipHandle(value) {
@@ -69,6 +38,9 @@ function resolveStreamUrl(url) {
 }
 
 export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) {
+  const [lang, setLang] = useState(getInitialLang);
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
   const [canvasId, setCanvasId] = useState(DEFAULT_CANVAS_ID);
   const [elements, setElements] = useState([]);
   const [locks, setLocks] = useState({});
@@ -86,7 +58,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [onlineCount, setOnlineCount] = useState(1);
   const [onlineUsers, setOnlineUsers] = useState([user.username]);
 
-  const activeRoom = ROOMS.find((r) => r.id === canvasId) || ROOMS[0];
+  const activeTheme = ROOM_THEMES.find((r) => r.id === canvasId) || ROOM_THEMES[0];
+  const activeRoomCopy = t.rooms?.[canvasId] || TRANSLATIONS.en.rooms[DEFAULT_CANVAS_ID];
 
   // Voice recording & stacking state
   const [isRecording, setIsRecording] = useState(false);
@@ -129,6 +102,11 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   const socketRef = useRef(null);
 
+  const changeLanguage = (code) => {
+    setLang(code);
+    localStorage.setItem('thek_lang', code);
+  };
+
   useEffect(() => {
     const handler = (e) => {
       e.preventDefault();
@@ -148,7 +126,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     }
   };
 
-  // Board Pan & Zoom Handlers
   const clampZoom = (val) => Math.min(1.5, Math.max(0.5, Number(val.toFixed(2))));
 
   const handleBoardPointerDown = (e) => {
@@ -156,6 +133,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       e.target.closest('[data-card="true"]') ||
       e.target.closest('button') ||
       e.target.closest('input') ||
+      e.target.closest('select') ||
       e.target.closest('nav') ||
       e.target.closest('header')
     ) {
@@ -804,52 +782,66 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       onTouchEnd={handleTouchEnd}
       style={{
         ...styles.board,
-        backgroundColor: activeRoom.bgColor,
-        backgroundImage: `radial-gradient(${activeRoom.dotColor} 1px, transparent 1px)`,
+        backgroundColor: activeTheme.bgColor,
+        backgroundImage: `radial-gradient(${activeTheme.dotColor} 1px, transparent 1px)`,
         backgroundPosition: `${pan.x}px ${pan.y}px`,
         backgroundSize: `${24 * zoom}px ${24 * zoom}px`
       }}
     >
       {/* Top Bar */}
       <header style={styles.topBar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
           <span
             style={{
-              width: '9px',
-              height: '9px',
+              width: '8px',
+              height: '8px',
               borderRadius: '50%',
-              background: wsConnected ? activeRoom.accent : '#f59e0b'
+              background: wsConnected ? activeTheme.accent : '#f59e0b'
             }}
           />
           <div>
             <div style={{ fontWeight: '900', fontSize: '14px', color: '#fff', letterSpacing: '-0.3px' }}>
               Thek{' '}
               <span
-                onClick={() => setStatusBanner(`🟢 Online in ${activeRoom.label}: ${onlineUsers.join(', ')}`)}
+                onClick={() => setStatusBanner(`🟢 Online in ${activeRoomCopy.label}: ${onlineUsers.join(', ')}`)}
                 style={{
                   fontWeight: '700',
                   fontSize: '10px',
-                  color: activeRoom.accent,
+                  color: activeTheme.accent,
                   background: 'rgba(255,255,255,0.08)',
-                  padding: '2px 7px',
+                  padding: '2px 6px',
                   borderRadius: '999px',
                   cursor: 'pointer'
                 }}
               >
-                {onlineCount} live
+                {onlineCount} {t.liveSuffix}
               </span>
             </div>
             <div style={{ fontSize: '10px', color: '#94a3b8' }}>@{user.username}</div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', overflowX: 'auto' }}>
+          {/* Clean 22-Language Selector */}
+          <select
+            aria-label="Language"
+            value={lang}
+            onChange={(e) => changeLanguage(e.target.value)}
+            style={styles.langSelect}
+          >
+            {LANGUAGES.map((item) => (
+              <option key={item.code} value={item.code} style={{ background: '#0b0e14', color: '#f8fafc' }}>
+                🌐 {item.short}
+              </option>
+            ))}
+          </select>
+
           {deferredInstallPrompt && (
             <button
               onClick={handleInstallPwa}
               style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#00e676' }}
             >
-              📲 Install
+              {t.installBtn}
             </button>
           )}
           <button
@@ -864,30 +856,31 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               color: myTipHandle ? '#fcd34d' : '#cbd5e1'
             }}
           >
-            💸 {myTipHandle ? 'Tip On' : 'Tip Setup'}
+            {myTipHandle ? t.tipOn : t.tipSetup}
           </button>
           <button onClick={handleTidyGrid} style={{ ...styles.pillBtn, borderColor: '#38bdf8', color: '#38bdf8' }}>
-            Tidy
+            {t.tidyBtn}
           </button>
           <button onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
-            Invites ({inviteCodes.length})
+            {t.invitesBtn} ({inviteCodes.length})
           </button>
           <button onClick={onLogout} style={{ ...styles.pillBtn, color: '#fca5a5' }}>
-            Exit
+            {t.exitBtn}
           </button>
         </div>
       </header>
 
       {/* Multi-Room Channel Switcher Bar */}
       <nav style={styles.roomBar}>
-        {ROOMS.map((room) => {
+        {ROOM_THEMES.map((room) => {
           const isActive = room.id === canvasId;
+          const roomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms[room.id];
           return (
             <button
               key={room.id}
               onClick={() => {
                 setCanvasId(room.id);
-                setStatusBanner(`Switched to ${room.icon} ${room.label}`);
+                setStatusBanner(`${room.icon} ${roomText.label}`);
               }}
               style={{
                 ...styles.roomChip,
@@ -897,7 +890,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               }}
             >
               <span>{room.icon}</span>
-              <span>{room.label}</span>
+              <span>{roomText.label}</span>
             </button>
           );
         })}
@@ -956,9 +949,9 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       {elements.length === 0 && (
         <div style={styles.emptyState}>
           <div style={{ fontSize: '18px', fontWeight: '700', color: '#cbd5e1', marginBottom: '6px' }}>
-            {activeRoom.icon} {activeRoom.label} is Quiet...
+            {activeTheme.icon} {activeRoomCopy.label} {t.quietSuffix}
           </div>
-          <div style={{ fontSize: '13px', color: '#64748b' }}>{activeRoom.hint}</div>
+          <div style={{ fontSize: '13px', color: '#64748b' }}>{activeRoomCopy.hint}</div>
         </div>
       )}
 
@@ -1004,7 +997,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
                     : targetEl;
                   setStackTarget(rootParent);
                   setStatusBanner(
-                    `Hold "Layer Sound" below to snap your reply under @${rootParent.media_meta?.author || 'Member'}!`
+                    `Hold "${t.layerSoundBtn}" below to snap your reply under @${rootParent.media_meta?.author || 'Member'}!`
                   );
                 }}
               />
@@ -1019,7 +1012,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           type="button"
           onClick={() => setZoom((z) => clampZoom(z - 0.15))}
           style={styles.zoomBtn}
-          title="Zoom Out"
         >
           −
         </button>
@@ -1027,7 +1019,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           type="button"
           onClick={resetViewport}
           style={{ ...styles.zoomBtn, fontSize: '10px', padding: '4px 7px' }}
-          title="Reset Center & 100% Zoom"
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -1035,7 +1026,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           type="button"
           onClick={() => setZoom((z) => clampZoom(z + 0.15))}
           style={styles.zoomBtn}
-          title="Zoom In"
         >
           +
         </button>
@@ -1085,7 +1075,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               💸 Tip @{activeTipTarget.media_meta?.author || 'Creator'}
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '10px' }}>
-              Direct P2P to <b>{activeTipTarget.media_meta?.tip_handle}</b> (Verify recipient name in your UPI app)
+              Direct P2P to <b>{activeTipTarget.media_meta?.tip_handle}</b>
             </div>
 
             <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
@@ -1142,7 +1132,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         <div style={styles.modalBackdrop} onClick={() => setShowNoteModal(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddNote} style={styles.noteModal}>
             <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '10px', color: '#fff' }}>
-              Drop a Sticky Note in {activeRoom.label}
+              {activeRoomCopy.label}
             </div>
             <input
               type="text"
@@ -1158,7 +1148,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
                 Cancel
               </button>
               <button type="submit" style={styles.primaryMiniBtn}>
-                Post Note
+                Post
               </button>
             </div>
           </form>
@@ -1178,7 +1168,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
             <input
               type="text"
-              placeholder="Clip title (e.g., Sodepur Open Mic Bit)"
+              placeholder="Clip title"
               value={stageTitle}
               onChange={(e) => setStageTitle(e.target.value)}
               maxLength={80}
@@ -1220,7 +1210,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
                 disabled={isUploading || (!stageUrl.trim() && !stageFile)}
                 style={{ ...styles.primaryMiniBtn, background: '#fb7185', color: '#fff' }}
               >
-                {isUploading ? 'Dropping...' : 'Drop Clip'}
+                {isUploading ? t.uploadingBtn : 'Drop Clip'}
               </button>
             </div>
           </form>
@@ -1264,7 +1254,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
                 disabled={isUploading || !photoFile}
                 style={{ ...styles.primaryMiniBtn, background: '#38bdf8', color: '#082f49' }}
               >
-                {isUploading ? 'Pinning...' : 'Pin Photo'}
+                {isUploading ? t.uploadingBtn : 'Pin Photo'}
               </button>
             </div>
           </form>
@@ -1274,21 +1264,21 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       {/* Bottom Floating Dock */}
       <div style={styles.bottomDock}>
         <button onClick={() => setShowNoteModal(true)} style={styles.noteBtn}>
-          + Note
+          {t.noteBtn}
         </button>
 
         <button
           onClick={() => setShowStageModal(true)}
           style={{ ...styles.noteBtn, borderColor: '#fb7185', color: '#fda4af' }}
         >
-          🎬 Stage
+          {t.stageBtn}
         </button>
 
         <button
           onClick={() => setShowPhotoModal(true)}
           style={{ ...styles.noteBtn, borderColor: '#38bdf8', color: '#7dd3fc' }}
         >
-          📸 Photo
+          {t.photoBtn}
         </button>
 
         <button
@@ -1299,17 +1289,17 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           className={isRecording ? 'recording-pulse' : ''}
           style={{
             ...styles.voiceBtn,
-            background: isRecording ? '#ff1744' : isUploading ? '#475569' : activeRoom.accent,
+            background: isRecording ? '#ff1744' : isUploading ? '#475569' : activeTheme.accent,
             color: isRecording ? '#ffffff' : '#051b11'
           }}
         >
           {isUploading
-            ? 'Uploading...'
+            ? t.uploadingBtn
             : isRecording
-            ? '● Release to Drop'
+            ? t.releaseDropBtn
             : stackTarget
-            ? '↳ Layer Sound'
-            : '🎙 Voice Drop'}
+            ? t.layerSoundBtn
+            : t.voiceDropBtn}
         </button>
       </div>
     </div>
@@ -1332,7 +1322,7 @@ const styles = {
     left: 0,
     right: 0,
     height: '54px',
-    padding: '0 12px',
+    padding: '0 10px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1340,6 +1330,17 @@ const styles = {
     backdropFilter: 'blur(12px)',
     borderBottom: '1px solid #1e293b',
     zIndex: 55
+  },
+  langSelect: {
+    background: '#0b0e14',
+    border: '1px solid #334155',
+    color: '#00e676',
+    fontSize: '10.5px',
+    fontWeight: '700',
+    padding: '4px 6px',
+    borderRadius: '999px',
+    outline: 'none',
+    cursor: 'pointer'
   },
   roomBar: {
     position: 'fixed',
@@ -1373,9 +1374,9 @@ const styles = {
     background: '#1e293b',
     border: '1px solid #334155',
     color: '#e2e8f0',
-    fontSize: '11px',
+    fontSize: '10.5px',
     fontWeight: '600',
-    padding: '6px 9px',
+    padding: '5px 8px',
     borderRadius: '999px',
     cursor: 'pointer',
     whiteSpace: 'nowrap'
