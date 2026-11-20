@@ -56,7 +56,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   // Live Room Presence state
   const [onlineCount, setOnlineCount] = useState(1);
-  const [onlineUsers, setOnlineUsers] = useState([user.username]);
+  //const [onlineUsers, setOnlineUsers] = useState([user.username]);
+  const safeUser = user || { id: 'guest', username: 'Member' };
 
   // Creator IP Protection Toggles (applied to next drop)
   const [isWipMode, setIsWipMode] = useState(false);
