@@ -3,7 +3,7 @@ import { API_BASE_URL, WS_BASE_URL, DEFAULT_CANVAS_ID } from '../config';
 import { LANGUAGES, TRANSLATIONS, getInitialLang } from '../i18n';
 import DraggableElement from './DraggableElement';
 import HelpBrochureModal from './HelpBrochureModal';
-import ThekLogo from './ThekLogo';
+import ThekLogo from './Thek-Logo';
 
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
 const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
