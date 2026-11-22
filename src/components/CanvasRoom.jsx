@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL, WS_BASE_URL, DEFAULT_CANVAS_ID } from '../config';
 import { LANGUAGES, TRANSLATIONS, getInitialLang } from '../i18n';
 import DraggableElement from './DraggableElement';
+import HelpBrochureModal from './HelpBrochureModal';
 
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
 const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
@@ -53,6 +54,15 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     user && user.id ? user : { id: token || 'member', username: user?.username || 'Member' };
   const [lang, setLang] = useState(getInitialLang);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
+  const [showHelpModal, setShowHelpModal] = useState(
+  () => !localStorage.getItem('thek_welcome_seen_v1')
+);
+
+const handleCloseHelpModal = () => {
+  localStorage.setItem('thek_welcome_seen_v1', 'true');
+  setShowHelpModal(false);
+};
 
   const [viewport, setViewport] = useState(() => ({
     width: window.innerWidth,
@@ -942,6 +952,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           <button onClick={onLogout} style={{ ...styles.pillBtn, color: '#fca5a5' }}>
             {isMobile ? '✕' : t.exitBtn}
           </button>
+          <button
+  type="button"
+  onClick={() => setShowHelpModal(true)}
+  style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#6ee7b7' }}
+>
+  {isMobile ? '?' : '? Help'}
+</button>
         </div>
       </header>
 
@@ -1171,7 +1188,13 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
           +
         </button>
       </div>
-
+{/* Modals অংশে */}
+<HelpBrochureModal
+  isOpen={showHelpModal}
+  onClose={handleCloseHelpModal}
+  lang={lang}
+  onChangeLang={changeLanguage}
+/>
       {/* Expanded Photo Lightbox Modal */}
       {expandedPhoto && (
         <div style={styles.modalBackdrop} onClick={() => setExpandedPhoto(null)}>
