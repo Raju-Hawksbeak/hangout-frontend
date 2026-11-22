@@ -3,6 +3,7 @@ import { API_BASE_URL, WS_BASE_URL, DEFAULT_CANVAS_ID } from '../config';
 import { LANGUAGES, TRANSLATIONS, getInitialLang } from '../i18n';
 import DraggableElement from './DraggableElement';
 import HelpBrochureModal from './HelpBrochureModal';
+import ThekLogo from './ThekLogo';
 
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
 const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
@@ -55,15 +56,6 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [lang, setLang] = useState(getInitialLang);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
-  const [showHelpModal, setShowHelpModal] = useState(
-  () => !localStorage.getItem('tHek_welcome_seen_v1')
-);
-
-const handleCloseHelpModal = () => {
-  localStorage.setItem('tHek_welcome_seen_v1', 'true');
-  setShowHelpModal(false);
-};
-
   const [viewport, setViewport] = useState(() => ({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -109,9 +101,18 @@ const handleCloseHelpModal = () => {
   const [showQaModal, setShowQaModal] = useState(false);
   const [qaText, setQaText] = useState('');
 
+  const [showHelpModal, setShowHelpModal] = useState(
+    () => !localStorage.getItem('thek_welcome_seen_v1')
+  );
+
+  const handleCloseHelpModal = () => {
+    localStorage.setItem('thek_welcome_seen_v1', 'true');
+    setShowHelpModal(false);
+  };
+
   const activeTheme = ROOM_THEMES.find((r) => r.id === canvasId) || ROOM_THEMES[0];
   const fallbackRoom = {
-    label: 'tHek Main',
+    label: 'Thek Main',
     hint: 'Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note!'
   };
   const activeRoomCopy =
@@ -155,7 +156,7 @@ const handleCloseHelpModal = () => {
 
   const changeLanguage = (code) => {
     setLang(code);
-    localStorage.setItem('tHek_lang', code);
+    localStorage.setItem('thek_lang', code);
   };
 
   useEffect(() => {
@@ -477,7 +478,6 @@ const handleCloseHelpModal = () => {
     setActiveTipTarget(null);
   };
 
-  // Multi-Tier Tidy Grid: 1 col (Phone), 2 cols (Tablet), 3-5 cols (Big Monitor)
   const handleTidyGrid = async () => {
     if (elements.length === 0) return;
     resetViewport();
@@ -846,29 +846,13 @@ const handleCloseHelpModal = () => {
       }}
     >
       {/* Adaptive Top Header */}
-      <header style={{ ...styles.topBar, padding: isMobile ? '0 8px' : '0 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          <span
-            style={{
-              width: '9px',
-              height: '9px',
-              borderRadius: '50%',
-              background: wsConnected ? activeTheme.accent : '#f59e0b'
-            }}
-          />
-          <div>
-            <div
-              style={{
-                fontWeight: '900',
-                fontSize: isMobile ? '13.5px' : '15px',
-                color: '#fff',
-                letterSpacing: '-0.3px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              {/* Left: tHek Logo + Live Count + Username */}
+      <header
+        style={{
+          ...styles.topBar,
+          padding: isMobile ? '0 8px' : '0 16px',
+          gap: '8px'
+        }}
+      >
         <div
           style={{
             display: 'flex',
@@ -883,34 +867,38 @@ const handleCloseHelpModal = () => {
             height={isMobile ? 22 : 26}
             useImage={true}
           />
-              <span
-                onClick={() =>
-                  setStatusBanner(`🟢 Online in ${activeRoomCopy.label}: ${onlineUsers.join(', ')}`)
-                }
-                style={{
-                  fontWeight: '700',
-                  fontSize: '10px',
-                  color: activeTheme.accent,
-                  background: 'rgba(255,255,255,0.08)',
-                  padding: '2px 7px',
-                  borderRadius: '999px',
-                  cursor: 'pointer'
-                }}
-              >
-                {onlineCount} {isMobile ? '' : t.liveSuffix}
-              </span>
-            </div>
-            <div style={{ fontSize: '10px', color: '#94a3b8' }}>@{safeUser.username}</div>
-          </div>
+          <span
+            onClick={() =>
+              setStatusBanner(`🟢 Online in ${activeRoomCopy.label}: ${onlineUsers.join(', ')}`)
+            }
+            title={onlineUsers.join(', ')}
+            style={{
+              fontWeight: '700',
+              fontSize: '10px',
+              color: activeTheme.accent,
+              background: 'rgba(255,255,255,0.08)',
+              border: `1px solid ${activeTheme.accent}44`,
+              padding: '2px 7px',
+              borderRadius: '999px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {onlineCount} {isMobile ? '' : t.liveSuffix}
+          </span>
+          {!isMobile && (
+            <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+              @{safeUser.username}
+            </span>
+          )}
         </div>
 
         <div
           style={{
             display: 'flex',
-            gap: isMobile ? '4px' : '8px',
+            gap: isMobile ? '4px' : '7px',
             alignItems: 'center',
-            overflowX: 'auto',
-            paddingLeft: '8px'
+            overflowX: 'auto'
           }}
         >
           <select
@@ -930,15 +918,26 @@ const handleCloseHelpModal = () => {
             ))}
           </select>
 
+          <button
+            type="button"
+            onClick={() => setShowHelpModal(true)}
+            style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#6ee7b7' }}
+          >
+            {isMobile ? '?' : '? Help'}
+          </button>
+
           {deferredInstallPrompt && (
             <button
+              type="button"
               onClick={handleInstallPwa}
               style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#00e676' }}
             >
               {isMobile ? '📲' : t.installBtn}
             </button>
           )}
+
           <button
+            type="button"
             onClick={() => {
               setTipInput(myTipHandle);
               setTipError('');
@@ -952,27 +951,24 @@ const handleCloseHelpModal = () => {
           >
             {isMobile ? '💸' : myTipHandle ? t.tipOn : t.tipSetup}
           </button>
+
           <button
+            type="button"
             onClick={handleTidyGrid}
             style={{ ...styles.pillBtn, borderColor: '#38bdf8', color: '#38bdf8' }}
           >
             {isMobile ? '⊞' : t.tidyBtn}
           </button>
-          <button onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
+
+          <button type="button" onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
             {isMobile
               ? `🔑${inviteCodes.length}`
               : `${t.invitesBtn} (${inviteCodes.length})`}
           </button>
-          <button onClick={onLogout} style={{ ...styles.pillBtn, color: '#fca5a5' }}>
+
+          <button type="button" onClick={onLogout} style={{ ...styles.pillBtn, color: '#fca5a5' }}>
             {isMobile ? '✕' : t.exitBtn}
           </button>
-          <button
-  type="button"
-  onClick={() => setShowHelpModal(true)}
-  style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#6ee7b7' }}
->
-  {isMobile ? '?' : '? Help'}
-</button>
         </div>
       </header>
 
@@ -1156,7 +1152,7 @@ const handleCloseHelpModal = () => {
                 onReact={handleReactElement}
                 onExpandPhoto={(targetEl) => setExpandedPhoto(targetEl)}
                 onStackAudio={(targetEl) => {
-                    const rootParent = targetEl.parent_element_id
+                  const rootParent = targetEl.parent_element_id
                     ? elements.find((p) => p.id === targetEl.parent_element_id) || targetEl
                     : targetEl;
                   setStackTarget(rootParent);
@@ -1202,13 +1198,15 @@ const handleCloseHelpModal = () => {
           +
         </button>
       </div>
-{/* Modals অংশে */}
-<HelpBrochureModal
-  isOpen={showHelpModal}
-  onClose={handleCloseHelpModal}
-  lang={lang}
-  onChangeLang={changeLanguage}
-/>
+
+      {/* Brochure & User Manual Modal */}
+      <HelpBrochureModal
+        isOpen={showHelpModal}
+        onClose={handleCloseHelpModal}
+        lang={lang}
+        onChangeLang={changeLanguage}
+      />
+
       {/* Expanded Photo Lightbox Modal */}
       {expandedPhoto && (
         <div style={styles.modalBackdrop} onClick={() => setExpandedPhoto(null)}>
@@ -1261,7 +1259,7 @@ const handleCloseHelpModal = () => {
         </div>
       )}
 
-      {/* Modals */}
+      {/* IP Certificate Modal */}
       {activeIpTarget && (
         <div style={styles.modalBackdrop} onClick={() => setActiveIpTarget(null)}>
           <div onClick={(e) => e.stopPropagation()} style={styles.noteModal}>
@@ -1314,11 +1312,7 @@ const handleCloseHelpModal = () => {
               >
                 Copy Proof
               </button>
-              <button
-                type="button"
-                onClick={() => setActiveIpTarget(null)}
-                style={styles.pillBtn}
-              >
+              <button type="button" onClick={() => setActiveIpTarget(null)} style={styles.pillBtn}>
                 Close
               </button>
             </div>
@@ -1326,6 +1320,7 @@ const handleCloseHelpModal = () => {
         </div>
       )}
 
+      {/* Tip Setup Modal */}
       {showTipSetup && (
         <div style={styles.modalBackdrop} onClick={() => setShowTipSetup(false)}>
           <form
@@ -1357,11 +1352,7 @@ const handleCloseHelpModal = () => {
             <div
               style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}
             >
-              <button
-                type="button"
-                onClick={() => setShowTipSetup(false)}
-                style={styles.pillBtn}
-              >
+              <button type="button" onClick={() => setShowTipSetup(false)} style={styles.pillBtn}>
                 Cancel
               </button>
               <button
@@ -1375,6 +1366,7 @@ const handleCloseHelpModal = () => {
         </div>
       )}
 
+      {/* Send Tip Modal */}
       {activeTipTarget && (
         <div style={styles.modalBackdrop} onClick={() => setActiveTipTarget(null)}>
           <div onClick={(e) => e.stopPropagation()} style={styles.noteModal}>
@@ -1397,11 +1389,7 @@ const handleCloseHelpModal = () => {
               style={{ ...styles.noteInput, marginBottom: '12px' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setActiveTipTarget(null)}
-                style={styles.pillBtn}
-              >
+              <button type="button" onClick={() => setActiveTipTarget(null)} style={styles.pillBtn}>
                 Close
               </button>
               <button
@@ -1416,6 +1404,7 @@ const handleCloseHelpModal = () => {
         </div>
       )}
 
+      {/* Q&A Modal */}
       {showQaModal && (
         <div style={styles.modalBackdrop} onClick={() => setShowQaModal(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddQa} style={styles.noteModal}>
@@ -1441,11 +1430,7 @@ const handleCloseHelpModal = () => {
             <div
               style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}
             >
-              <button
-                type="button"
-                onClick={() => setShowQaModal(false)}
-                style={styles.pillBtn}
-              >
+              <button type="button" onClick={() => setShowQaModal(false)} style={styles.pillBtn}>
                 Cancel
               </button>
               <button
@@ -1459,6 +1444,7 @@ const handleCloseHelpModal = () => {
         </div>
       )}
 
+      {/* Note Modal */}
       {showNoteModal && (
         <div style={styles.modalBackdrop} onClick={() => setShowNoteModal(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddNote} style={styles.noteModal}>
@@ -1477,11 +1463,7 @@ const handleCloseHelpModal = () => {
             <div
               style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}
             >
-              <button
-                type="button"
-                onClick={() => setShowNoteModal(false)}
-                style={styles.pillBtn}
-              >
+              <button type="button" onClick={() => setShowNoteModal(false)} style={styles.pillBtn}>
                 Cancel
               </button>
               <button type="submit" style={styles.primaryMiniBtn}>
@@ -1492,6 +1474,7 @@ const handleCloseHelpModal = () => {
         </div>
       )}
 
+      {/* Stage Clip Modal */}
       {showStageModal && (
         <div style={styles.modalBackdrop} onClick={() => setShowStageModal(false)}>
           <form
@@ -1538,11 +1521,7 @@ const handleCloseHelpModal = () => {
               style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '12px', width: '100%' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setShowStageModal(false)}
-                style={styles.pillBtn}
-              >
+              <button type="button" onClick={() => setShowStageModal(false)} style={styles.pillBtn}>
                 Cancel
               </button>
               <button
@@ -1557,6 +1536,7 @@ const handleCloseHelpModal = () => {
         </div>
       )}
 
+      {/* Photo Modal */}
       {showPhotoModal && (
         <div style={styles.modalBackdrop} onClick={() => setShowPhotoModal(false)}>
           <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddPhoto} style={styles.noteModal}>
@@ -1586,11 +1566,7 @@ const handleCloseHelpModal = () => {
               style={{ ...styles.noteInput, marginBottom: '12px' }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button
-                type="button"
-                onClick={() => setShowPhotoModal(false)}
-                style={styles.pillBtn}
-              >
+              <button type="button" onClick={() => setShowPhotoModal(false)} style={styles.pillBtn}>
                 Cancel
               </button>
               <button
