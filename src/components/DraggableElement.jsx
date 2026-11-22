@@ -181,13 +181,14 @@ export default function DraggableElement({
     await persistTransform(finalTransform);
   };
 
-  // Resize handle handlers
   const handleResizePointerDown = (e) => {
     e.stopPropagation();
     if (isLockedByOther) return;
 
     const cardEl = e.currentTarget.closest('[data-card="true"]');
-    const currentRectWidth = cardEl ? cardEl.getBoundingClientRect().width / (zoomRef.current || 1) : 260;
+    const currentRectWidth = cardEl
+      ? cardEl.getBoundingClientRect().width / (zoomRef.current || 1)
+      : 260;
     const startW = latestWidthRef.current || Math.round(currentRectWidth);
 
     isResizingRef.current = true;
@@ -205,7 +206,10 @@ export default function DraggableElement({
     const currentZoom = zoomRef.current || 1;
     const deltaX = (e.clientX - resizeStartRef.current.startX) / currentZoom;
     const maxAllowed = Math.min(560, Math.max(240, window.innerWidth - 28));
-    const nextWidth = Math.max(190, Math.min(maxAllowed, Math.round(resizeStartRef.current.startWidth + deltaX)));
+    const nextWidth = Math.max(
+      190,
+      Math.min(maxAllowed, Math.round(resizeStartRef.current.startWidth + deltaX))
+    );
 
     setCardWidth(nextWidth);
     latestWidthRef.current = nextWidth;
@@ -682,7 +686,6 @@ export default function DraggableElement({
         </button>
       )}
 
-      {/* Bottom-Right Resize Handle */}
       {!isLockedByOther && (
         <div
           data-resize-handle="true"
