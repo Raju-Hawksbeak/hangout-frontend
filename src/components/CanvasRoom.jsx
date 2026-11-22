@@ -56,11 +56,11 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
   const [showHelpModal, setShowHelpModal] = useState(
-  () => !localStorage.getItem('thek_welcome_seen_v1')
+  () => !localStorage.getItem('tHek_welcome_seen_v1')
 );
 
 const handleCloseHelpModal = () => {
-  localStorage.setItem('thek_welcome_seen_v1', 'true');
+  localStorage.setItem('tHek_welcome_seen_v1', 'true');
   setShowHelpModal(false);
 };
 
@@ -111,7 +111,7 @@ const handleCloseHelpModal = () => {
 
   const activeTheme = ROOM_THEMES.find((r) => r.id === canvasId) || ROOM_THEMES[0];
   const fallbackRoom = {
-    label: 'Thek Main',
+    label: 'tHek Main',
     hint: 'Drop a Voice Wave, Stage Clip, Polaroid Photo, or Sticky Note!'
   };
   const activeRoomCopy =
@@ -155,7 +155,7 @@ const handleCloseHelpModal = () => {
 
   const changeLanguage = (code) => {
     setLang(code);
-    localStorage.setItem('thek_lang', code);
+    localStorage.setItem('tHek_lang', code);
   };
 
   useEffect(() => {
@@ -173,7 +173,7 @@ const handleCloseHelpModal = () => {
     const { outcome } = await deferredInstallPrompt.userChoice;
     if (outcome === 'accepted') {
       setDeferredInstallPrompt(null);
-      setStatusBanner('📲 Thek installed to your home screen!');
+      setStatusBanner('📲 tHek installed to your home screen!');
     }
   };
 
@@ -422,7 +422,7 @@ const handleCloseHelpModal = () => {
   const handleCopyInviteLink = (code) => {
     const shareUrl = `${window.location.origin}/?invite=${encodeURIComponent(code)}`;
     navigator.clipboard?.writeText(shareUrl);
-    setStatusBanner(`🔗 Copied Thek invite link for ${code}!`);
+    setStatusBanner(`🔗 Copied tHek invite link for ${code}!`);
   };
 
   const handleSaveTipSetup = (e) => {
@@ -456,7 +456,7 @@ const handleCloseHelpModal = () => {
     } else if (handle.includes('@')) {
       const upiUrl = `upi://pay?pa=${encodeURIComponent(handle)}&pn=${encodeURIComponent(
         author
-      )}&am=${amt}&cu=INR&tn=${encodeURIComponent('Thek Creator Tip')}`;
+      )}&am=${amt}&cu=INR&tn=${encodeURIComponent('tHek Creator Tip')}`;
       navigator.clipboard?.writeText(handle);
       window.location.href = upiUrl;
     }
@@ -654,7 +654,7 @@ const handleCloseHelpModal = () => {
       await persistCanvasElement('text', null, { text: qaText.trim(), is_qa: true });
       setQaText('');
       setShowQaModal(false);
-      setStatusBanner('❓ Listener Q&A dropped onto Thek!');
+      setStatusBanner('❓ Listener Q&A dropped onto tHek!');
     } catch (err) {
       setStatusBanner(err.message || 'Could not post question.');
     }
@@ -819,7 +819,7 @@ const handleCloseHelpModal = () => {
       setPhotoFile(null);
       setPhotoCaption('');
       setShowPhotoModal(false);
-      setStatusBanner('Polaroid Photo pinned to Thek!');
+      setStatusBanner('Polaroid Photo pinned to tHek!');
     } catch (err) {
       setStatusBanner(err.message || 'Could not upload photo.');
     } finally {
@@ -868,7 +868,21 @@ const handleCloseHelpModal = () => {
                 gap: '6px'
               }}
             >
-              <span>Thek</span>
+              {/* Left: tHek Logo + Live Count + Username */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexShrink: 0,
+            minWidth: 'fit-content'
+          }}
+        >
+          <ThekLogo
+            accent={activeTheme.accent}
+            height={isMobile ? 22 : 26}
+            useImage={true}
+          />
               <span
                 onClick={() =>
                   setStatusBanner(`🟢 Online in ${activeRoomCopy.label}: ${onlineUsers.join(', ')}`)
@@ -976,7 +990,7 @@ const handleCloseHelpModal = () => {
           const roomText =
             rawRoomText ||
             (room.id === DEFAULT_CANVAS_ID
-              ? { label: 'Thek Main', hint: fallbackRoom.hint }
+              ? { label: 'tHek Main', hint: fallbackRoom.hint }
               : { label: room.id, hint: '' });
           return (
             <button
@@ -1291,7 +1305,7 @@ const handleCloseHelpModal = () => {
                 onClick={() => {
                   const p = activeIpTarget.media_meta?.ip_proof;
                   navigator.clipboard?.writeText(
-                    `Thek IP Proof | @${activeIpTarget.media_meta?.author} | ${p?.timestamp_utc} | ${p?.sha256}`
+                    `tHek IP Proof | @${activeIpTarget.media_meta?.author} | ${p?.timestamp_utc} | ${p?.sha256}`
                   );
                   setStatusBanner('📋 Copied SHA-256 IP Certificate!');
                   setActiveIpTarget(null);
