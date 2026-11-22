@@ -5,7 +5,7 @@ import DraggableElement from './DraggableElement';
 
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
 const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
-
+const [expandedPhoto, setExpandedPhoto] = useState(null);
 const ROOM_THEMES = [
   { id: DEFAULT_CANVAS_ID, icon: '⚡', accent: '#00e676', dotColor: '#1e293b', bgColor: '#0b0e14' },
   { id: 'standup-stage', icon: '🎤', accent: '#fb7185', dotColor: '#31101b', bgColor: '#12090d' },
@@ -544,22 +544,23 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   };
 
   const getSafeDropCoords = () => {
-    const baseOffsetX = Math.max(0, -pan.x / zoom);
-    const baseOffsetY = Math.max(0, -pan.y / zoom);
-    const maxSpreadX = Math.max(40, Math.min(viewport.width - 340, 1200));
-    const maxSpreadY = Math.max(120, Math.min(viewport.height - 320, 720));
+  const baseOffsetX = Math.max(0, -pan.x / zoom);
+  const baseOffsetY = Math.max(0, -pan.y / zoom);
+  const maxSpreadX = Math.max(20, Math.min(viewport.width - 340, 1200));
+  const usableHeight = Math.max(180, viewport.height - dockClearance - 160);
+  const maxSpreadY = Math.max(60, Math.min(usableHeight, 680));
 
-    if (isMobile) {
-      return {
-        x: Math.floor(baseOffsetX + 18 + Math.random() * 24),
-        y: Math.floor(baseOffsetY + 114 + Math.random() * 140)
-      };
-    }
+  if (isMobile) {
     return {
-      x: Math.floor(baseOffsetX + 48 + Math.random() * maxSpreadX),
-      y: Math.floor(baseOffsetY + 118 + Math.random() * maxSpreadY)
+      x: Math.floor(baseOffsetX + 14 + Math.random() * Math.max(10, viewport.width - 310)),
+      y: Math.floor(baseOffsetY + 112 + Math.random() * Math.max(40, usableHeight - 120))
     };
+  }
+  return {
+    x: Math.floor(baseOffsetX + 48 + Math.random() * maxSpreadX),
+    y: Math.floor(baseOffsetY + 118 + Math.random() * maxSpreadY)
   };
+};
 
   const persistCanvasElement = async (elementType, mediaUrl, mediaMeta) => {
     const { x: randomX, y: randomY } = getSafeDropCoords();
@@ -958,7 +959,7 @@ const roomText = rawRoomText || (room.id === DEFAULT_CANVAS_ID ? { label: 'Thek 
 
       {/* Toast */}
       {statusBanner && (
-        <div style={styles.toast} onClick={() => setStatusBanner('')}>
+        <div style={styles.toast, top: pinnedElement ? '164px' : '106px'} onClick={() => setStatusBanner('')}>
           {statusBanner}
         </div>
       )}
