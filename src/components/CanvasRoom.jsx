@@ -1003,7 +1003,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             }}
           >
             <img
-              src="/thek-logo.png"
+              src="public/thek-logo.png"
               alt="tHek"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
