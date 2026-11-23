@@ -615,8 +615,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     resetViewport();
 
     const marginX = isMobile ? 16 : isTablet ? 24 : 36;
-    const marginY = pinnedElement ? 164 : 112;
-    const cardHeight = 295;
+    const marginY = pinnedElement ? 168 : 114;
+    const cardHeight = 340;
 
     let cols = 1;
     let cardWidth = viewport.width - 32;
@@ -705,19 +705,36 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const getSafeDropCoords = () => {
     const baseOffsetX = Math.max(0, -pan.x / zoom);
     const baseOffsetY = Math.max(0, -pan.y / zoom);
-    const maxSpreadX = Math.max(20, Math.min(viewport.width - 340, 1200));
-    const usableHeight = Math.max(180, viewport.height - dockClearance - 160);
-    const maxSpreadY = Math.max(60, Math.min(usableHeight, 680));
+    const startX = Math.floor(baseOffsetX + (isMobile ? 16 : 48));
+    const startY = Math.floor(baseOffsetY + (isMobile ? 114 : 118));
 
-    if (isMobile) {
-      return {
-        x: Math.floor(baseOffsetX + 14 + Math.random() * Math.max(10, viewport.width - 310)),
-        y: Math.floor(baseOffsetY + 112 + Math.random() * Math.max(40, usableHeight - 120))
-      };
+    const stepX = isMobile ? 260 : 330;
+    const stepY = 260;
+    const maxCols = isMobile ? 1 : Math.max(2, Math.floor((viewport.width - 96) / stepX));
+
+    for (let slot = 0; slot < 60; slot++) {
+      const col = slot % maxCols;
+      const row = Math.floor(slot / maxCols);
+      const candidateX = startX + col * stepX;
+      const candidateY = startY + row * stepY;
+
+      const collides = elements.some((el) => {
+        const ex = Number(el.transform_data?.x ?? 0);
+        const ey = Number(el.transform_data?.y ?? 0);
+        return (
+          Math.abs(ex - candidateX) < (isMobile ? 210 : 270) &&
+          Math.abs(ey - candidateY) < 210
+        );
+      });
+
+      if (!collides) {
+        return { x: candidateX, y: candidateY };
+      }
     }
+
     return {
-      x: Math.floor(baseOffsetX + 48 + Math.random() * maxSpreadX),
-      y: Math.floor(baseOffsetY + 118 + Math.random() * maxSpreadY)
+      x: startX + (elements.length % maxCols) * stepX,
+      y: startY + Math.floor(elements.length / maxCols) * stepY
     };
   };
 
@@ -839,7 +856,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         const parentX = stackTarget.transform_data?.x ?? 24;
         const parentY = stackTarget.transform_data?.y ?? 120;
         dropX = Math.max(12, parentX + 16);
-        dropY = parentY + 145 * (existingReplies.length + 1);
+        dropY = parentY + 185 * (existingReplies.length + 1);
       }
 
       const payload = {
@@ -1003,7 +1020,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
             }}
           >
             <img
-              src="public/thek-logo.png"
+              src="/assets/thek-logo.png"
               alt="tHek"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
@@ -2217,104 +2234,3 @@ const styles = {
     background: 'rgba(19, 24, 34, 0.95)',
     backdropFilter: 'blur(14px)',
     padding: '9px 10px',
-    borderRadius: '18px',
-    border: '1px solid #2d3748',
-    boxShadow: '0 14px 35px rgba(0,0,0,0.75)',
-    zIndex: 50
-  },
-  mobileActionRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' },
-  mobileMiniBtn: {
-    background: '#1e293b',
-    border: '1px solid #334155',
-    color: '#f8fafc',
-    fontWeight: '700',
-    fontSize: '11px',
-    padding: '8px 4px',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    textAlign: 'center',
-    whiteSpace: 'nowrap'
-  },
-  mobileVoiceBtn: {
-    width: '100%',
-    border: 'none',
-    fontWeight: '800',
-    fontSize: '13px',
-    padding: '12px 16px',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    userSelect: 'none',
-    touchAction: 'none',
-    textAlign: 'center'
-  },
-  noteBtn: {
-    background: '#1e293b',
-    border: '1px solid #334155',
-    color: '#f8fafc',
-    fontWeight: '700',
-    fontSize: '12.5px',
-    padding: '10px 14px',
-    borderRadius: '999px',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap'
-  },
-  voiceBtn: {
-    border: 'none',
-    fontWeight: '800',
-    fontSize: '12.5px',
-    padding: '10px 20px',
-    borderRadius: '999px',
-    cursor: 'pointer',
-    userSelect: 'none',
-    touchAction: 'none',
-    whiteSpace: 'nowrap'
-  },
-  modalBackdrop: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.68)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 80,
-    padding: '16px'
-  },
-  noteModal: {
-    width: '100%',
-    maxWidth: '380px',
-    background: '#131822',
-    border: '1px solid #2d3748',
-    borderRadius: '16px',
-    padding: '20px'
-  },
-  certBox: {
-    background: '#0b0e14',
-    border: '1px solid #1e293b',
-    borderRadius: '10px',
-    padding: '10px 12px',
-    fontSize: '11.5px',
-    color: '#e2e8f0',
-    lineHeight: '1.6'
-  },
-  noteInput: {
-    width: '100%',
-    padding: '11px 12px',
-    borderRadius: '10px',
-    border: '1px solid #334155',
-    background: '#0b0e14',
-    color: '#fff',
-    fontSize: '14px',
-    outline: 'none',
-    boxSizing: 'border-box'
-  },
-  primaryMiniBtn: {
-    background: '#00e676',
-    border: 'none',
-    color: '#051b11',
-    fontWeight: '800',
-    fontSize: '12px',
-    padding: '7px 14px',
-    borderRadius: '999px',
-    cursor: 'pointer'
-  }
-};
