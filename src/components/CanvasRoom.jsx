@@ -31,6 +31,7 @@ const GUIDE_COPY = {
         heading: '🎸 For Musicians, Poets & Storytellers',
         items: [
           'Voice Layering & Threads: Reply under any audio card to build harmonies, poetry chains, or beat-vocal stacks.',
+          'Selective Multi-Layer Mixer: Toggle any combination of layers (1, 2, 3, or all) and play them together.',
           'WIP Mode: Mark rough demos as raw drafts before official release.',
           'SHA-256 Proof of Creation: Every upload gets a timestamped ownership certificate.',
           'Stream-Only Lock: Share unreleased audio without allowing raw file downloads.'
@@ -50,11 +51,11 @@ const GUIDE_COPY = {
     ],
     steps: [
       { step: '1. Switch Rooms', desc: 'Use the top room bar to switch between Thek Main, Standup Stage, Baul & Folk Jam, and Chill Lounge.' },
-      { step: '2. Drop Voice Notes & Layers', desc: 'Hold "Voice Drop" to record and release to post. Tap Layer/Reply on an audio card to snap a threaded response underneath.' },
-      { step: '3. Post Notes, Q&A, Clips & Photos', desc: 'Use the bottom dock to drop sticky notes, Listener Q&A cards, stage video clips, or Polaroid photos.' },
-      { step: '4. Move, Resize & Inspect', desc: 'Drag any card across the canvas, drag the bottom-right ↘ handle to resize, or tap 🔍 View on a photo for full-size view.' },
-      { step: '5. Protect & Tip Setup', desc: 'Toggle WIP and Stream-Only above the dock before uploading, copy SHA-256 proof via 🛡️, and add your UPI ID in Tip Setup.' },
-      { step: '6. Zoom & Tidy Grid', desc: 'Pinch or scroll to zoom, drag empty canvas space to pan, and tap Tidy (⊞) anytime to arrange cards neatly.' }
+      { step: '2. Drop Voice Notes & Layers', desc: 'Hold "Voice Drop" to record and release to post. Tap Layer/Reply on an audio card to snap a threaded response underneath while monitoring the base track.' },
+      { step: '3. Mix Any Combination of Layers', desc: 'In a multi-layer chain, check/uncheck any tracks (single, pair, trio, or all) and tap Play Selected.' },
+      { step: '4. Post Notes, Q&A, Clips & Photos', desc: 'Use the bottom dock to drop sticky notes, Listener Q&A cards, stage video clips, or Polaroid photos.' },
+      { step: '5. Move, Resize & Inspect', desc: 'Drag any card across the canvas, drag the bottom-right ↘ handle to resize, or tap 🔍 View on a photo for full-size view.' },
+      { step: '6. Protect, Tip Setup & Tidy Grid', desc: 'Toggle WIP and Stream-Only above the dock before uploading, copy SHA-256 proof via 🛡️, set your UPI ID in Tip Setup, and tap Tidy (⊞) to organize cards.' }
     ]
   },
   bn: {
@@ -74,6 +75,7 @@ const GUIDE_COPY = {
         heading: '🎸 মিউজিশিয়ান, কবি ও শিল্পীদের জন্য',
         items: [
           'ভয়েস লেয়ারিং ও থ্রেড: যেকোনো অডিও কার্ডের নিচে সরাসরি সুর, হারমনি বা কবিতার উত্তর জুড়ে দিন।',
+          'সিলেক্টিভ মাল্টি-লেয়ার মিক্সার: ১টা, ২টা, ৩টা বা সবকটা লেয়ার—যেকোনো কম্বিনেশন টিক দিয়ে একসাথে শুনে দেখুন।',
           'WIP মোড: অপ্রকাশিত ডেমো বা খসড়া কাজকে আলাদা ব্যাজ দিয়ে শেয়ার করুন।',
           'SHA-256 Proof of Creation: প্রতিটি আপলোডের সাথে টাইমস্ট্যাম্পসহ মালিকানা সার্টিফিকেট যুক্ত হয়।',
           'Stream-Only লক: ফাইল ডাউনলোড বন্ধ রেখে শুধু স্ট্রিমিং মোডে গান বা অডিও শোনান।'
@@ -94,10 +96,10 @@ const GUIDE_COPY = {
     steps: [
       { step: '১. রুম বদলানো', desc: 'উপরের রুম বার থেকে Thek Main, Standup Stage, Baul & Folk Jam বা Chill Lounge-এ সহজেই ঘুরে আসুন।' },
       { step: '২. ভয়েস ড্রপ ও সুরের লেয়ার', desc: 'নিচের "Voice Drop" বাটন চেপে ধরে রেকর্ড করুন এবং ছেড়ে দিন। কোনো অডিও কার্ডের নিচে উত্তর জুড়তে লেয়ার/রিপ্লাই বাটনে চাপুন।' },
-      { step: '৩. নোট, Q&A, স্টেজ ক্লিপ ও ছবি', desc: 'নিচের ডক থেকে স্টিকি নোট, শ্রোতাদের Q&A, ভিডিও ক্লিপ বা পোলারয়েড ছবি যোগ করুন।' },
-      { step: '৪. কার্ড সরানো, বড়-ছোট করা ও দেখা', desc: 'যেকোনো কার্ড টেনে ক্যানভাসে বসান, নিচে ডান কোণার ↘ হ্যান্ডেল টেনে সাইজ বড়-ছোট করুন, এবং ছবিতে 🔍 View চেপে বড় করে দেখুন।' },
-      { step: '৫. সুরক্ষা ও টিপ সেটআপ', desc: 'আপলোডের আগে ডকের উপরে WIP এবং Stream-Only টগল সেট করুন, 🛡️ থেকে SHA-256 প্রুফ কপি করুন এবং Tip Setup-এ UPI ID দিন।' },
-      { step: '৬. জুম ও গ্রিড সাজানো', desc: 'পিঞ্চ বা স্ক্রল করে জুম করুন, ফাঁকা জায়গা টেনে ক্যানভাস সরান এবং সব কার্ড গোছাতে Tidy (⊞) চাপুন।' }
+      { step: '৩. যেকোনো কম্বিনেশনে লেয়ার শোনা', desc: 'একাধিক লেয়ার থাকলে চেকবক্স থেকে সিঙ্গেল, দুটো, তিনটে বা সব লেয়ার বেছে Play Selected চাপুন।' },
+      { step: '৪. নোট, Q&A, স্টেজ ক্লিপ ও ছবি', desc: 'নিচের ডক থেকে স্টিকি নোট, শ্রোতাদের Q&A, ভিডিও ক্লিপ বা পোলারয়েড ছবি যোগ করুন।' },
+      { step: '৫. কার্ড সরানো, বড়-ছোট করা ও দেখা', desc: 'যেকোনো কার্ড টেনে ক্যানভাসে বসান, নিচে ডান কোণার ↘ হ্যান্ডেল টেনে সাইজ বড়-ছোট করুন, এবং ছবিতে 🔍 View চেপে বড় করে দেখুন।' },
+      { step: '৬. সুরক্ষা, টিপ ও গ্রিড সাজানো', desc: 'আপলোডের আগে ডকের উপরে WIP এবং Stream-Only টগল সেট করুন, 🛡️ থেকে SHA-256 প্রুফ কপি করুন, Tip Setup-এ UPI ID দিন এবং সব কার্ড গোছাতে Tidy (⊞) চাপুন।' }
     ]
   },
   hi: {
@@ -117,6 +119,7 @@ const GUIDE_COPY = {
         heading: '🎸 संगीतकारों, कवियों और कलाकारों के लिए',
         items: [
           'वॉयस लेयरिंग और थ्रेड्स: किसी भी ऑडियो कार्ड के नीचे सीधे अपनी धुन या जवाब जोड़ें।',
+          'सिलेक्टिव लेयर मिक्सर: 1, 2, 3 या सभी लेयर्स में से कोई भी कॉम्बिनेशन चुनकर एक साथ सुनें।',
           'WIP मोड: अधूरे डेमो को रॉ ड्राफ्ट बैज के साथ शेयर करें।',
           'SHA-256 क्रिएशन प्रूफ: हर अपलोड के साथ टाइमस्टैम्प सर्टिफिकेट मिलता है।',
           'Stream-Only लॉक: बिना डाउनलोड की अनुमति दिए अपने ट्रैक स्ट्रीम करें।'
@@ -137,10 +140,10 @@ const GUIDE_COPY = {
     steps: [
       { step: '1. रूम बदलें', desc: 'ऊपर दिए रूम बार से Thek Main, Standup Stage, Baul & Folk Jam या Chill Lounge चुनें।' },
       { step: '2. वॉयस ड्रॉप और लेयरिंग', desc: 'नीचे "Voice Drop" दबाकर रखें, रिकॉर्ड करें और छोड़ दें। किसी ऑडियो पर जवाब जोड़ने के लिए उसके लेयर बटन का उपयोग करें।' },
-      { step: '3. नोट्स, Q&A, क्लिप्स और फोटो', desc: 'नीचे के डॉक से स्टिकी नोट, Q&A, वीडियो क्लिप या पोलरॉइड फोटो जोड़ें।' },
-      { step: '4. मूव, रीसाइज़ और व्यू', desc: 'कार्ड को कहीं भी ड्रैग करें, नीचे-दाएं ↘ हैंडल से बड़ा-छोटा करें, या फोटो पर 🔍 View दबाकर बड़ा देखें।' },
-      { step: '5. IP सुरक्षा और टिप जार', desc: 'अपलोड से पहले WIP और Stream-Only चुनें, 🛡️ से SHA-256 प्रूफ कॉपी करें और Tip Setup में UPI ID सेव करें।' },
-      { step: '6. ज़ूम और Tidy ग्रिड', desc: 'पिंच या स्क्रॉल से ज़ूम करें और सभी कार्ड्स को एक साथ व्यवस्थित करने के लिए Tidy (⊞) दबाएं।' }
+      { step: '3. लेयर कॉम्बिनेशन चलाएं', desc: 'चेकबॉक्स से 1 या अधिक लेयर्स चुनें और Play Selected दबाएं।' },
+      { step: '4. नोट्स, Q&A, क्लिप्स और फोटो', desc: 'नीचे के डॉक से स्टिकी नोट, Q&A, वीडियो क्लिप या पोलरॉइड फोटो जोड़ें।' },
+      { step: '5. मूव, रीसाइज़ और व्यू', desc: 'कार्ड को कहीं भी ड्रैग करें, नीचे-दाएं ↘ हैंडल से बड़ा-छोटा करें, या फोटो पर 🔍 View दबाकर बड़ा देखें।' },
+      { step: '6. IP सुरक्षा, टिप और Tidy ग्रिड', desc: 'अपलोड से पहले WIP और Stream-Only चुनें, 🛡️ से SHA-256 प्रूफ कॉपी करें, Tip Setup में UPI ID सेव करें और Tidy (⊞) दबाएं।' }
     ]
   }
 };
@@ -256,9 +259,15 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordStartTimeRef = useRef(0);
+  const monitorAudioRef = useRef(null);
 
   const [playingThreadId, setPlayingThreadId] = useState(null);
   const threadAudioRef = useRef(null);
+
+  const mixAudiosRef = useRef([]);
+  const [mixingParentId, setMixingParentId] = useState(null);
+  const [selectedTrackIdsByParent, setSelectedTrackIdsByParent] = useState({});
+
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
 
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -285,6 +294,14 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [statusBanner, setStatusBanner] = useState('');
 
   const socketRef = useRef(null);
+
+  useEffect(() => {
+    if (!statusBanner) return;
+    const timer = setTimeout(() => {
+      setStatusBanner('');
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [statusBanner]);
 
   const changeLanguage = (code) => {
     setLang(code);
@@ -371,6 +388,123 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     setZoom(1);
   };
 
+  const stopThreadPlayback = () => {
+    if (threadAudioRef.current) {
+      threadAudioRef.current.pause();
+      threadAudioRef.current = null;
+    }
+    setPlayingThreadId(null);
+  };
+
+  const stopMixedPlayback = () => {
+    mixAudiosRef.current.forEach(({ audio }) => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {}
+    });
+    mixAudiosRef.current = [];
+    setMixingParentId(null);
+  };
+
+  const getChainTracks = (parentEl, replies = []) =>
+    [parentEl, ...replies].filter((item) => item && item.media_url);
+
+  const getSelectedIdsForChain = (parentEl, replies = []) => {
+    const tracks = getChainTracks(parentEl, replies);
+    const allIds = tracks.map((tr) => tr.id);
+    const saved = selectedTrackIdsByParent[parentEl.id];
+    if (!saved) return allIds;
+    return saved.filter((id) => allIds.includes(id));
+  };
+
+  const handleToggleTrackSelection = (parentId, allChainIds, trackId) => {
+    setSelectedTrackIdsByParent((prev) => {
+      const current = prev[parentId] ?? allChainIds;
+      const exists = current.includes(trackId);
+      const next = exists ? current.filter((id) => id !== trackId) : [...current, trackId];
+      return { ...prev, [parentId]: next };
+    });
+  };
+
+  const handleSetQuickSelection = (parentId, ids) => {
+    setSelectedTrackIdsByParent((prev) => ({ ...prev, [parentId]: ids }));
+  };
+
+  const handlePlaySelectedTracks = async (parentEl, replies = []) => {
+    if (mixingParentId === parentEl.id) {
+      stopMixedPlayback();
+      setStatusBanner('⏹ Stopped layer playback.');
+      return;
+    }
+
+    const allTracks = getChainTracks(parentEl, replies);
+    const selectedIds = getSelectedIdsForChain(parentEl, replies);
+    const chosenTracks = allTracks.filter((tr) => selectedIds.includes(tr.id));
+
+    if (chosenTracks.length === 0) {
+      setStatusBanner('⚠️ Select at least 1 layer to play.');
+      return;
+    }
+
+    stopThreadPlayback();
+    stopMixedPlayback();
+
+    setMixingParentId(parentEl.id);
+    setStatusBanner(
+      chosenTracks.length === 1
+        ? `🎧 Playing single layer: @${chosenTracks[0].media_meta?.author || 'Member'}`
+        : `🎛️ Playing ${chosenTracks.length} selected layers together`
+    );
+
+    const created = chosenTracks.map((track, idx) => {
+      const audio = new Audio(resolveStreamUrl(track.media_url));
+      audio.crossOrigin = 'anonymous';
+      audio.preload = 'auto';
+      audio.volume = idx === 0 ? 1.0 : 0.88;
+      return { id: track.id, audio };
+    });
+
+    mixAudiosRef.current = created;
+
+    await Promise.all(
+      created.map(
+        ({ audio }) =>
+          new Promise((resolve) => {
+            if (audio.readyState >= 2) return resolve();
+            const onReady = () => {
+              cleanup();
+              resolve();
+            };
+            const cleanup = () => {
+              audio.removeEventListener('canplaythrough', onReady);
+              audio.removeEventListener('loadeddata', onReady);
+              audio.removeEventListener('error', onReady);
+            };
+            audio.addEventListener('canplaythrough', onReady, { once: true });
+            audio.addEventListener('loadeddata', onReady, { once: true });
+            audio.addEventListener('error', onReady, { once: true });
+            setTimeout(() => {
+              cleanup();
+              resolve();
+            }, 1200);
+          })
+      )
+    );
+
+    let finishedCount = 0;
+    created.forEach(({ audio }) => {
+      audio.onended = () => {
+        finishedCount += 1;
+        if (finishedCount >= created.length) {
+          setMixingParentId(null);
+          mixAudiosRef.current = [];
+        }
+      };
+      audio.play().catch(() => {});
+    });
+  };
+
   const loadElements = async (targetCanvasId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/canvases/${targetCanvasId}/elements`);
@@ -387,6 +521,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
 
   useEffect(() => {
     stopThreadPlayback();
+    stopMixedPlayback();
     resetViewport();
     setElements([]);
     setLocks({});
@@ -472,19 +607,12 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     };
   }, [canvasId]);
 
-  const stopThreadPlayback = () => {
-    if (threadAudioRef.current) {
-      threadAudioRef.current.pause();
-      threadAudioRef.current = null;
-    }
-    setPlayingThreadId(null);
-  };
-
   const handlePlayThread = (parentEl, replies) => {
     if (playingThreadId === parentEl.id) {
       stopThreadPlayback();
       return;
     }
+    stopMixedPlayback();
     stopThreadPlayback();
     const queue = [parentEl, ...replies].filter((item) => item.media_url);
     if (queue.length === 0) return;
@@ -832,12 +960,27 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
       mediaRecorderRef.current = recorder;
       recorder.start();
       setIsRecording(true);
+
+      if (stackTarget?.media_url) {
+        try {
+          const backing = new Audio(resolveStreamUrl(stackTarget.media_url));
+          backing.volume = 0.75;
+          monitorAudioRef.current = backing;
+          backing.play().catch(() => {});
+        } catch {}
+      }
     } catch {
       setStatusBanner('Microphone access denied. Please allow mic permission in browser.');
     }
   };
 
   const stopRecording = () => {
+    if (monitorAudioRef.current) {
+      try {
+        monitorAudioRef.current.pause();
+        monitorAudioRef.current = null;
+      } catch {}
+    }
     if (!isRecording || !mediaRecorderRef.current) return;
     mediaRecorderRef.current.stop();
     setIsRecording(false);
@@ -1249,7 +1392,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
         </div>
       )}
 
-      {/* Toast */}
+      {/* Auto-Closing Toast */}
       {statusBanner && (
         <div
           style={{
@@ -1315,6 +1458,8 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
               el.element_type === 'audio' && !el.parent_element_id
                 ? elements.filter((child) => child.parent_element_id === el.id)
                 : [];
+            const chainTracks = getChainTracks(el, replies);
+            const selectedIds = getSelectedIdsForChain(el, replies);
 
             return (
               <DraggableElement
@@ -1327,6 +1472,24 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
                 canvasId={canvasId}
                 zoom={zoom}
                 threadReplies={replies}
+                chainTracks={chainTracks}
+                selectedTrackIds={selectedIds}
+                isMixingThread={mixingParentId === el.id}
+                onToggleTrack={(trackId) =>
+                  handleToggleTrackSelection(
+                    el.id,
+                    chainTracks.map((tr) => tr.id),
+                    trackId
+                  )
+                }
+                onSelectAllTracks={() =>
+                  handleSetQuickSelection(
+                    el.id,
+                    chainTracks.map((tr) => tr.id)
+                  )
+                }
+                onClearTracks={() => handleSetQuickSelection(el.id, [])}
+                onPlaySelected={() => handlePlaySelectedTracks(el, replies)}
                 isPlayingThread={playingThreadId === el.id}
                 onPlayThread={handlePlayThread}
                 onDelete={() => handleDeleteElement(el.id)}
