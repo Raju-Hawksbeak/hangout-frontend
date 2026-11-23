@@ -2234,3 +2234,104 @@ const styles = {
     background: 'rgba(19, 24, 34, 0.95)',
     backdropFilter: 'blur(14px)',
     padding: '9px 10px',
+    borderRadius: '18px',
+    border: '1px solid #2d3748',
+    boxShadow: '0 14px 35px rgba(0,0,0,0.75)',
+    zIndex: 50
+  },
+  mobileActionRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' },
+  mobileMiniBtn: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    color: '#f8fafc',
+    fontWeight: '700',
+    fontSize: '11px',
+    padding: '8px 4px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    whiteSpace: 'nowrap'
+  },
+  mobileVoiceBtn: {
+    width: '100%',
+    border: 'none',
+    fontWeight: '800',
+    fontSize: '13px',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    userSelect: 'none',
+    touchAction: 'none',
+    textAlign: 'center'
+  },
+  noteBtn: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    color: '#f8fafc',
+    fontWeight: '700',
+    fontSize: '12.5px',
+    padding: '10px 14px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
+  },
+  voiceBtn: {
+    border: 'none',
+    fontWeight: '800',
+    fontSize: '12.5px',
+    padding: '10px 20px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    userSelect: 'none',
+    touchAction: 'none',
+    whiteSpace: 'nowrap'
+  },
+  modalBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.68)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 80,
+    padding: '16px'
+  },
+  noteModal: {
+    width: '100%',
+    maxWidth: '380px',
+    background: '#131822',
+    border: '1px solid #2d3748',
+    borderRadius: '16px',
+    padding: '20px'
+  },
+  certBox: {
+    background: '#0b0e14',
+    border: '1px solid #1e293b',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    fontSize: '11.5px',
+    color: '#e2e8f0',
+    lineHeight: '1.6'
+  },
+  noteInput: {
+    width: '100%',
+    padding: '11px 12px',
+    borderRadius: '10px',
+    border: '1px solid #334155',
+    background: '#0b0e14',
+    color: '#fff',
+    fontSize: '14px',
+    outline: 'none',
+    boxSizing: 'border-box'
+  },
+  primaryMiniBtn: {
+    background: '#00e676',
+    border: 'none',
+    color: '#051b11',
+    fontWeight: '800',
+    fontSize: '12px',
+    padding: '7px 14px',
+    borderRadius: '999px',
+    cursor: 'pointer'
+  }
+};
