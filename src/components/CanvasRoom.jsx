@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL, WS_BASE_URL, DEFAULT_CANVAS_ID } from '../config';
 import { LANGUAGES, TRANSLATIONS, getInitialLang } from '../i18n';
 import DraggableElement from './DraggableElement';
-import HelpBrochureModal from './HelpBrochureModal';
 
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z]{2,64}$/;
 const TRUSTED_TIP_HOSTS = ['razorpay.me', 'buymeacoffee.com', 'ko-fi.com', 'paypal.me', 'patreon.com'];
@@ -13,6 +12,138 @@ const ROOM_THEMES = [
   { id: 'baul-jam', icon: '🎸', accent: '#fbbf24', dotColor: '#2d210b', bgColor: '#120e08' },
   { id: 'chill-lounge', icon: '🌙', accent: '#a78bfa', dotColor: '#22183a', bgColor: '#0d0a16' }
 ];
+
+const GUIDE_COPY = {
+  en: {
+    badge: 'OFFICIAL GUIDE & BROCHURE',
+    title: 'Welcome to tHek',
+    subtitle: 'Zero-Algorithm Spatial Audio & Creative Hangout Canvas',
+    tabBrochure: '📖 Product Brochure',
+    tabManual: '🛠️ User Manual',
+    closeBtn: "Got it, Let's Jam",
+    tagline: 'No feeds. No follower counts. Just raw creative adda.',
+    sections: [
+      {
+        heading: '🎯 What is tHek?',
+        body: 'tHek is an invite-only spatial creative room inspired by neighborhood adda. Drop voice notes, layer harmonies, share Polaroid snapshots, pin stage clips, and jam live without algorithmic pressure.'
+      },
+      {
+        heading: '🎸 For Musicians, Poets & Storytellers',
+        items: [
+          'Voice Layering & Threads: Reply under any audio card to build harmonies, poetry chains, or beat-vocal stacks.',
+          'WIP Mode: Mark rough demos as raw drafts before official release.',
+          'SHA-256 Proof of Creation: Every upload gets a timestamped ownership certificate.',
+          'Stream-Only Lock: Share unreleased audio without allowing raw file downloads.'
+        ]
+      },
+      {
+        heading: '🎙️ For Podcasters & Live Hosts',
+        items: [
+          'Listener Q&A Cards: Collect live audience questions directly on the canvas.',
+          'Pin to Live Stage: Spotlight any question, voice drop, or clip at the top of the room.'
+        ]
+      },
+      {
+        heading: '💸 0% Fee Creator Tips',
+        body: 'Link your UPI ID or trusted tip page once. Supporters tip you directly with zero platform cut.'
+      }
+    ],
+    steps: [
+      { step: '1. Switch Rooms', desc: 'Use the top room bar to switch between Thek Main, Standup Stage, Baul & Folk Jam, and Chill Lounge.' },
+      { step: '2. Drop Voice Notes & Layers', desc: 'Hold "Voice Drop" to record and release to post. Tap Layer/Reply on an audio card to snap a threaded response underneath.' },
+      { step: '3. Post Notes, Q&A, Clips & Photos', desc: 'Use the bottom dock to drop sticky notes, Listener Q&A cards, stage video clips, or Polaroid photos.' },
+      { step: '4. Move, Resize & Inspect', desc: 'Drag any card across the canvas, drag the bottom-right ↘ handle to resize, or tap 🔍 View on a photo for full-size view.' },
+      { step: '5. Protect & Tip Setup', desc: 'Toggle WIP and Stream-Only above the dock before uploading, copy SHA-256 proof via 🛡️, and add your UPI ID in Tip Setup.' },
+      { step: '6. Zoom & Tidy Grid', desc: 'Pinch or scroll to zoom, drag empty canvas space to pan, and tap Tidy (⊞) anytime to arrange cards neatly.' }
+    ]
+  },
+  bn: {
+    badge: 'অফিশিয়াল গাইড ও ব্রোশিওর',
+    title: 'tHek-এ স্বাগতম',
+    subtitle: 'অ্যালগরিদম-মুক্ত স্পেশিয়াল অডিও ও ক্রিয়েটিভ আড্ডার ক্যানভাস',
+    tabBrochure: '📖 প্রোডাক্ট ব্রোশিওর',
+    tabManual: '🛠️ ইউজার ম্যানুয়াল',
+    closeBtn: 'বুঝেছি, আড্ডা শুরু হোক',
+    tagline: 'কোনো ফিড নেই, ফলোয়ারের চাপ নেই—শুধু খাঁটি সৃষ্টির আড্ডা।',
+    sections: [
+      {
+        heading: '🎯 tHek কী?',
+        body: 'tHek হলো পাড়ার আড্ডা বা ঠেক-এর আদলে তৈরি একটি স্পেশিয়াল ক্রিয়েটিভ ক্যানভাস। এখানে অ্যালগরিদমের চাপ ছাড়াই ভয়েস নোট, সুরের লেয়ার, পোলারয়েড ছবি আর স্টেজ ক্লিপ শেয়ার করা যায়।'
+      },
+      {
+        heading: '🎸 মিউজিশিয়ান, কবি ও শিল্পীদের জন্য',
+        items: [
+          'ভয়েস লেয়ারিং ও থ্রেড: যেকোনো অডিও কার্ডের নিচে সরাসরি সুর, হারমনি বা কবিতার উত্তর জুড়ে দিন।',
+          'WIP মোড: অপ্রকাশিত ডেমো বা খসড়া কাজকে আলাদা ব্যাজ দিয়ে শেয়ার করুন।',
+          'SHA-256 Proof of Creation: প্রতিটি আপলোডের সাথে টাইমস্ট্যাম্পসহ মালিকানা সার্টিফিকেট যুক্ত হয়।',
+          'Stream-Only লক: ফাইল ডাউনলোড বন্ধ রেখে শুধু স্ট্রিমিং মোডে গান বা অডিও শোনান।'
+        ]
+      },
+      {
+        heading: '🎙️ পডকাস্টার ও লাইভ হোস্টদের জন্য',
+        items: [
+          'Listener Q&A কার্ড: শ্রোতাদের প্রশ্ন সরাসরি ক্যানভাসে সংগ্রহ করুন।',
+          'Pin to Live Stage: যেকোনো প্রশ্ন, ভয়েস বা ক্লিপ রুমের একদম উপরে সবার সামনে পিন করুন।'
+        ]
+      },
+      {
+        heading: '💸 ০% ফি ক্রিয়েটর টিপ জার',
+        body: 'আপনার UPI ID বা ট্রাস্টেড টিপ লিংক সেট করুন—শ্রোতারা কোনো কমিশন ছাড়াই সরাসরি আপনাকে টিপ পাঠাতে পারবেন।'
+      }
+    ],
+    steps: [
+      { step: '১. রুম বদলানো', desc: 'উপরের রুম বার থেকে Thek Main, Standup Stage, Baul & Folk Jam বা Chill Lounge-এ সহজেই ঘুরে আসুন।' },
+      { step: '২. ভয়েস ড্রপ ও সুরের লেয়ার', desc: 'নিচের "Voice Drop" বাটন চেপে ধরে রেকর্ড করুন এবং ছেড়ে দিন। কোনো অডিও কার্ডের নিচে উত্তর জুড়তে লেয়ার/রিপ্লাই বাটনে চাপুন।' },
+      { step: '৩. নোট, Q&A, স্টেজ ক্লিপ ও ছবি', desc: 'নিচের ডক থেকে স্টিকি নোট, শ্রোতাদের Q&A, ভিডিও ক্লিপ বা পোলারয়েড ছবি যোগ করুন।' },
+      { step: '৪. কার্ড সরানো, বড়-ছোট করা ও দেখা', desc: 'যেকোনো কার্ড টেনে ক্যানভাসে বসান, নিচে ডান কোণার ↘ হ্যান্ডেল টেনে সাইজ বড়-ছোট করুন, এবং ছবিতে 🔍 View চেপে বড় করে দেখুন।' },
+      { step: '৫. সুরক্ষা ও টিপ সেটআপ', desc: 'আপলোডের আগে ডকের উপরে WIP এবং Stream-Only টগল সেট করুন, 🛡️ থেকে SHA-256 প্রুফ কপি করুন এবং Tip Setup-এ UPI ID দিন।' },
+      { step: '৬. জুম ও গ্রিড সাজানো', desc: 'পিঞ্চ বা স্ক্রল করে জুম করুন, ফাঁকা জায়গা টেনে ক্যানভাস সরান এবং সব কার্ড গোছাতে Tidy (⊞) চাপুন।' }
+    ]
+  },
+  hi: {
+    badge: 'ऑफिशियल गाइड और ब्रोशर',
+    title: 'tHek में स्वागत है',
+    subtitle: 'जीरो-एल्गोरिदम स्पेशियल ऑडियो और क्रिएटिव अड्डा कैनवास',
+    tabBrochure: '📖 प्रोडक्ट ब्रोशर',
+    tabManual: '🛠️ यूज़र मैनुअल',
+    closeBtn: 'समझ गया, जैम शुरू करें',
+    tagline: 'न कोई फीड, न फॉलोअर्स का दबाव—बस असली क्रिएटिव अड्डा।',
+    sections: [
+      {
+        heading: '🎯 tHek क्या है?',
+        body: 'tHek एक क्रिएटिव स्पेस है जहाँ आप बिना एल्गोरिदम के दबाव के वॉयस नोट्स, हारमनी लेयर्स, पोलरॉइड फोटो और स्टेज क्लिप्स शेयर कर सकते हैं।'
+      },
+      {
+        heading: '🎸 संगीतकारों, कवियों और कलाकारों के लिए',
+        items: [
+          'वॉयस लेयरिंग और थ्रेड्स: किसी भी ऑडियो कार्ड के नीचे सीधे अपनी धुन या जवाब जोड़ें।',
+          'WIP मोड: अधूरे डेमो को रॉ ड्राफ्ट बैज के साथ शेयर करें।',
+          'SHA-256 क्रिएशन प्रूफ: हर अपलोड के साथ टाइमस्टैम्प सर्टिफिकेट मिलता है।',
+          'Stream-Only लॉक: बिना डाउनलोड की अनुमति दिए अपने ट्रैक स्ट्रीम करें।'
+        ]
+      },
+      {
+        heading: '🎙️ पॉडकास्टर्स और लाइव होस्ट्स के लिए',
+        items: [
+          'Listener Q&A कार्ड्स: श्रोताओं के सवाल सीधे कैनवास पर लें।',
+          'Pin to Live Stage: किसी भी कार्ड को रूम में सबसे ऊपर पिन करें।'
+        ]
+      },
+      {
+        heading: '💸 0% फीस क्रिएटर टिप्स',
+        body: 'अपना UPI ID जोड़ें और बिना किसी कटौती के सीधे फैंस से टिप्स पाएं।'
+      }
+    ],
+    steps: [
+      { step: '1. रूम बदलें', desc: 'ऊपर दिए रूम बार से Thek Main, Standup Stage, Baul & Folk Jam या Chill Lounge चुनें।' },
+      { step: '2. वॉयस ड्रॉप और लेयरिंग', desc: 'नीचे "Voice Drop" दबाकर रखें, रिकॉर्ड करें और छोड़ दें। किसी ऑडियो पर जवाब जोड़ने के लिए उसके लेयर बटन का उपयोग करें।' },
+      { step: '3. नोट्स, Q&A, क्लिप्स और फोटो', desc: 'नीचे के डॉक से स्टिकी नोट, Q&A, वीडियो क्लिप या पोलरॉइड फोटो जोड़ें।' },
+      { step: '4. मूव, रीसाइज़ और व्यू', desc: 'कार्ड को कहीं भी ड्रैग करें, नीचे-दाएं ↘ हैंडल से बड़ा-छोटा करें, या फोटो पर 🔍 View दबाकर बड़ा देखें।' },
+      { step: '5. IP सुरक्षा और टिप जार', desc: 'अपलोड से पहले WIP और Stream-Only चुनें, 🛡️ से SHA-256 प्रूफ कॉपी करें और Tip Setup में UPI ID सेव करें।' },
+      { step: '6. ज़ूम और Tidy ग्रिड', desc: 'पिंच या स्क्रॉल से ज़ूम करें और सभी कार्ड्स को एक साथ व्यवस्थित करने के लिए Tidy (⊞) दबाएं।' }
+    ]
+  }
+};
 
 function getViewportTier(width) {
   if (width <= 640) return 'mobile';
@@ -54,6 +185,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
     user && user.id ? user : { id: token || 'member', username: user?.username || 'Member' };
   const [lang, setLang] = useState(getInitialLang);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  const guideCopy = GUIDE_COPY[lang] || GUIDE_COPY.en;
 
   const [viewport, setViewport] = useState(() => ({
     width: window.innerWidth,
@@ -103,6 +235,7 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   const [showHelpModal, setShowHelpModal] = useState(
     () => !localStorage.getItem('thek_welcome_seen_v1')
   );
+  const [guideTab, setGuideTab] = useState('brochure');
 
   const handleCloseHelpModal = () => {
     localStorage.setItem('thek_welcome_seen_v1', 'true');
@@ -771,3 +904,1417 @@ export default function CanvasRoom({ user, token, inviteCodes = [], onLogout }) 
   };
 
   const handleAddNote = async (e) => {
+    e.preventDefault();
+    if (!noteText.trim()) return;
+    try {
+      await persistCanvasElement('text', null, { text: noteText.trim() });
+      setNoteText('');
+      setShowNoteModal(false);
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not post note.');
+    }
+  };
+
+  const handleAddStageClip = async (e) => {
+    e.preventDefault();
+    if (!stageUrl.trim() && !stageFile) return;
+    setIsUploading(true);
+    try {
+      let finalVideoUrl = stageUrl.trim();
+      if (stageFile) {
+        finalVideoUrl = await uploadFileToBackend(stageFile, 'stage-clip.mp4');
+      }
+      await persistCanvasElement('video', finalVideoUrl, {
+        title: stageTitle.trim() || 'Standup / Stage Set'
+      });
+      setStageUrl('');
+      setStageTitle('');
+      setStageFile(null);
+      setShowStageModal(false);
+      setStatusBanner('🛡️ Stage Clip dropped with SHA-256 IP Proof!');
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not drop Stage Clip.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleAddPhoto = async (e) => {
+    e.preventDefault();
+    if (!photoFile) return;
+    setIsUploading(true);
+    try {
+      const uploadedPhotoUrl = await uploadFileToBackend(photoFile, 'polaroid.jpg');
+      await persistCanvasElement('photo', uploadedPhotoUrl, {
+        caption: photoCaption.trim() || 'Live Vibe'
+      });
+      setPhotoFile(null);
+      setPhotoCaption('');
+      setShowPhotoModal(false);
+      setStatusBanner('Polaroid Photo pinned to tHek!');
+    } catch (err) {
+      setStatusBanner(err.message || 'Could not upload photo.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div
+      onPointerDown={handleBoardPointerDown}
+      onPointerMove={handleBoardPointerMove}
+      onPointerUp={handleBoardPointerUp}
+      onPointerCancel={handleBoardPointerUp}
+      onWheel={handleBoardWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        ...styles.board,
+        backgroundColor: activeTheme.bgColor,
+        backgroundImage: `radial-gradient(${activeTheme.dotColor} 1px, transparent 1px)`,
+        backgroundPosition: `${pan.x}px ${pan.y}px`,
+        backgroundSize: `${24 * zoom}px ${24 * zoom}px`
+      }}
+    >
+      {/* Adaptive Top Header */}
+      <header
+        style={{
+          ...styles.topBar,
+          padding: isMobile ? '0 8px' : '0 16px',
+          gap: '8px'
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            flexShrink: 0,
+            minWidth: 'fit-content'
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              userSelect: 'none'
+            }}
+          >
+            <img
+              src="/thek-logo.png"
+              alt="tHek"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.nextElementSibling;
+                if (fallback) fallback.style.display = 'inline-flex';
+              }}
+              style={{
+                height: isMobile ? '22px' : '26px',
+                width: 'auto',
+                objectFit: 'contain',
+                borderRadius: '6px',
+                display: 'block'
+              }}
+            />
+            <span
+              style={{
+                display: 'none',
+                alignItems: 'center',
+                fontWeight: 900,
+                fontSize: isMobile ? '15px' : '17px',
+                letterSpacing: '-0.5px',
+                color: '#f8fafc',
+                lineHeight: 1
+              }}
+            >
+              t<span style={{ color: activeTheme.accent }}>H</span>ek
+            </span>
+          </span>
+
+          <span
+            onClick={() =>
+              setStatusBanner(`🟢 Online in ${activeRoomCopy.label}: ${onlineUsers.join(', ')}`)
+            }
+            title={onlineUsers.join(', ')}
+            style={{
+              fontWeight: '700',
+              fontSize: '10px',
+              color: activeTheme.accent,
+              background: 'rgba(255,255,255,0.08)',
+              border: `1px solid ${activeTheme.accent}44`,
+              padding: '2px 7px',
+              borderRadius: '999px',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {onlineCount} {isMobile ? '' : t.liveSuffix}
+          </span>
+
+          {!isMobile && (
+            <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+              @{safeUser.username}
+            </span>
+          )}
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: isMobile ? '4px' : '7px',
+            alignItems: 'center',
+            overflowX: 'auto'
+          }}
+        >
+          <select
+            aria-label="Language"
+            value={lang}
+            onChange={(e) => changeLanguage(e.target.value)}
+            style={styles.langSelect}
+          >
+            {LANGUAGES.map((item) => (
+              <option
+                key={item.code}
+                value={item.code}
+                style={{ background: '#0b0e14', color: '#f8fafc' }}
+              >
+                {isMobile ? item.short : `🌐 ${item.short}`}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={() => setShowHelpModal(true)}
+            style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#6ee7b7' }}
+          >
+            {isMobile ? '?' : '? Help'}
+          </button>
+
+          {deferredInstallPrompt && (
+            <button
+              type="button"
+              onClick={handleInstallPwa}
+              style={{ ...styles.pillBtn, borderColor: '#00e676', color: '#00e676' }}
+            >
+              {isMobile ? '📲' : t.installBtn}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setTipInput(myTipHandle);
+              setTipError('');
+              setShowTipSetup(true);
+            }}
+            style={{
+              ...styles.pillBtn,
+              borderColor: myTipHandle ? '#f59e0b' : '#475569',
+              color: myTipHandle ? '#fcd34d' : '#cbd5e1'
+            }}
+          >
+            {isMobile ? '💸' : myTipHandle ? t.tipOn : t.tipSetup}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleTidyGrid}
+            style={{ ...styles.pillBtn, borderColor: '#38bdf8', color: '#38bdf8' }}
+          >
+            {isMobile ? '⊞' : t.tidyBtn}
+          </button>
+
+          <button type="button" onClick={() => setShowInvites(!showInvites)} style={styles.pillBtn}>
+            {isMobile
+              ? `🔑${inviteCodes.length}`
+              : `${t.invitesBtn} (${inviteCodes.length})`}
+          </button>
+
+          <button type="button" onClick={onLogout} style={{ ...styles.pillBtn, color: '#fca5a5' }}>
+            {isMobile ? '✕' : t.exitBtn}
+          </button>
+        </div>
+      </header>
+
+      {/* Room Switcher Bar */}
+      <nav
+        style={{
+          ...styles.roomBar,
+          padding: isMobile ? '0 10px' : '0 20px',
+          justifyContent: isMobile ? 'flex-start' : 'center'
+        }}
+      >
+        {ROOM_THEMES.map((room) => {
+          const isActive = room.id === canvasId;
+          const rawRoomText = t.rooms?.[room.id] || TRANSLATIONS.en.rooms?.[room.id];
+          const roomText =
+            rawRoomText ||
+            (room.id === DEFAULT_CANVAS_ID
+              ? { label: 'tHek Main', hint: fallbackRoom.hint }
+              : { label: room.id, hint: '' });
+          return (
+            <button
+              key={room.id}
+              onClick={() => {
+                setCanvasId(room.id);
+                setStatusBanner(`${room.icon} ${roomText.label}`);
+              }}
+              style={{
+                ...styles.roomChip,
+                borderColor: isActive ? room.accent : '#1e293b',
+                background: isActive ? 'rgba(255,255,255,0.08)' : 'rgba(15, 23, 42, 0.7)',
+                color: isActive ? room.accent : '#94a3b8'
+              }}
+            >
+              <span>{room.icon}</span>
+              <span>{roomText.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Pinned Live Stage Banner */}
+      {pinnedElement && (
+        <div style={styles.pinnedBanner}>
+          <div style={{ overflow: 'hidden' }}>
+            <div
+              style={{
+                fontSize: '10px',
+                fontWeight: '800',
+                color: '#fbbf24',
+                letterSpacing: '0.4px'
+              }}
+            >
+              📌 ON STAGE • @{pinnedElement.media_meta?.author || 'Member'}
+            </div>
+            <div
+              style={{
+                fontSize: '12.5px',
+                color: '#fff',
+                fontWeight: '600',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {pinnedElement.media_meta?.text ||
+                pinnedElement.media_meta?.title ||
+                pinnedElement.media_meta?.caption ||
+                '🎙 Live Audio / Stage Spotlight'}
+            </div>
+          </div>
+          <button type="button" onClick={() => handlePinElement(null)} style={styles.unpinBtn}>
+            Unpin
+          </button>
+        </div>
+      )}
+
+      {/* Invite Drawer */}
+      {showInvites && (
+        <div style={styles.inviteDrawer}>
+          <div style={{ fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#00e676' }}>
+            Tap a code to copy Invite Link:
+          </div>
+          {inviteCodes.length > 0 ? (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {inviteCodes.map((code) => (
+                <span key={code} onClick={() => handleCopyInviteLink(code)} style={styles.codeChip}>
+                  {code} 🔗
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>No unused invite codes left.</div>
+          )}
+        </div>
+      )}
+
+      {/* Toast */}
+      {statusBanner && (
+        <div
+          style={{
+            ...styles.toast,
+            top: pinnedElement ? '164px' : '106px'
+          }}
+          onClick={() => setStatusBanner('')}
+        >
+          {statusBanner}
+        </div>
+      )}
+
+      {/* Stack Banner */}
+      {stackTarget && (
+        <div style={{ ...styles.stackBanner, bottom: `${dockClearance + 4}px` }}>
+          <span>
+            ↳ Reply under <b>@{stackTarget.media_meta?.author || 'Member'}</b>
+          </span>
+          <button
+            onClick={() => setStackTarget(null)}
+            style={{ background: 'none', border: 'none', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Empty Hint */}
+      {elements.length === 0 && (
+        <div style={styles.emptyState}>
+          <div
+            style={{
+              fontSize: isMobile ? '17px' : '20px',
+              fontWeight: '700',
+              color: '#cbd5e1',
+              marginBottom: '6px'
+            }}
+          >
+            {activeTheme.icon} {activeRoomCopy.label} {t.quietSuffix}
+          </div>
+          <div style={{ fontSize: isMobile ? '12.5px' : '14px', color: '#64748b' }}>
+            {activeRoomCopy.hint}
+          </div>
+        </div>
+      )}
+
+      {/* Spatial Canvas */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: '0 0',
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none'
+        }}
+      >
+        <div style={{ pointerEvents: 'auto' }}>
+          {elements.map((el) => {
+            const replies =
+              el.element_type === 'audio' && !el.parent_element_id
+                ? elements.filter((child) => child.parent_element_id === el.id)
+                : [];
+
+            return (
+              <DraggableElement
+                key={el.id}
+                element={el}
+                lockInfo={locks[el.id]}
+                socketRef={socketRef}
+                currentUser={safeUser}
+                token={token}
+                canvasId={canvasId}
+                zoom={zoom}
+                threadReplies={replies}
+                isPlayingThread={playingThreadId === el.id}
+                onPlayThread={handlePlayThread}
+                onDelete={() => handleDeleteElement(el.id)}
+                onOpenTip={(targetEl) => setActiveTipTarget(targetEl)}
+                onInspectIp={(targetEl) => setActiveIpTarget(targetEl)}
+                onPinCard={handlePinElement}
+                onReact={handleReactElement}
+                onExpandPhoto={(targetEl) => setExpandedPhoto(targetEl)}
+                onStackAudio={(targetEl) => {
+                  const rootParent = targetEl.parent_element_id
+                    ? elements.find((p) => p.id === targetEl.parent_element_id) || targetEl
+                    : targetEl;
+                  setStackTarget(rootParent);
+                  setStatusBanner(
+                    `Hold "${t.layerSoundBtn}" below to snap your reply under @${
+                      rootParent.media_meta?.author || 'Member'
+                    }!`
+                  );
+                }}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Floating Zoom Controls */}
+      <div
+        style={{
+          ...styles.zoomControls,
+          bottom: `${dockClearance}px`,
+          right: isMobile ? '10px' : '22px'
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setZoom((z) => clampZoom(z - 0.15))}
+          style={styles.zoomBtn}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={resetViewport}
+          style={{ ...styles.zoomBtn, fontSize: '10.5px', padding: '4px 7px' }}
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => clampZoom(z + 0.15))}
+          style={styles.zoomBtn}
+        >
+          +
+        </button>
+      </div>
+
+      {/* Brochure & User Manual Modal */}
+      {showHelpModal && (
+        <div style={styles.modalBackdrop} onClick={handleCloseHelpModal}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              ...styles.noteModal,
+              maxWidth: '620px',
+              maxHeight: '86dvh',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: 0,
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                padding: '16px 18px 12px 18px',
+                borderBottom: '1px solid #1e293b',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: '10px'
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    display: 'inline-block',
+                    fontSize: '9.5px',
+                    fontWeight: '800',
+                    color: '#00e676',
+                    background: 'rgba(0, 230, 118, 0.12)',
+                    border: '1px solid rgba(0, 230, 118, 0.35)',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    marginBottom: '5px'
+                  }}
+                >
+                  {guideCopy.badge}
+                </div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#f8fafc' }}>
+                  {guideCopy.title}
+                </h2>
+                <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#94a3b8' }}>
+                  {guideCopy.subtitle}
+                </p>
+              </div>
+              <button type="button" onClick={handleCloseHelpModal} style={styles.pillBtn}>
+                ✕
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                padding: '10px 18px',
+                background: '#0b0e14',
+                borderBottom: '1px solid #1e293b'
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setGuideTab('brochure')}
+                style={{
+                  ...styles.pillBtn,
+                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  background: guideTab === 'brochure' ? '#00e676' : '#1e293b',
+                  color: guideTab === 'brochure' ? '#051b11' : '#cbd5e1',
+                  borderColor: guideTab === 'brochure' ? '#00e676' : '#334155'
+                }}
+              >
+                {guideCopy.tabBrochure}
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideTab('manual')}
+                style={{
+                  ...styles.pillBtn,
+                  borderRadius: '10px',
+                  padding: '8px 10px',
+                  background: guideTab === 'manual' ? '#38bdf8' : '#1e293b',
+                  color: guideTab === 'manual' ? '#082f49' : '#cbd5e1',
+                  borderColor: guideTab === 'manual' ? '#38bdf8' : '#334155'
+                }}
+              >
+                {guideCopy.tabManual}
+              </button>
+            </div>
+
+            <div
+              style={{
+                padding: '14px 18px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px'
+              }}
+            >
+              {guideTab === 'brochure' ? (
+                <>
+                  <div style={styles.certBox}>
+                    <b>{guideCopy.tagline}</b>
+                  </div>
+                  {guideCopy.sections.map((sec, idx) => (
+                    <div key={idx} style={styles.certBox}>
+                      <div style={{ fontWeight: '800', color: '#6ee7b7', marginBottom: '4px' }}>
+                        {sec.heading}
+                      </div>
+                      {sec.body && <div>{sec.body}</div>}
+                      {sec.items && (
+                        <ul style={{ margin: 0, paddingLeft: '16px' }}>
+                          {sec.items.map((item, i) => (
+                            <li key={i} style={{ marginBottom: '4px' }}>
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                guideCopy.steps.map((s, idx) => (
+                  <div key={idx} style={styles.certBox}>
+                    <div style={{ fontWeight: '800', color: '#7dd3fc', marginBottom: '3px' }}>
+                      {s.step}
+                    </div>
+                    <div>{s.desc}</div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div
+              style={{
+                padding: '12px 18px',
+                borderTop: '1px solid #1e293b',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                background: '#0b0e14'
+              }}
+            >
+              <button type="button" onClick={handleCloseHelpModal} style={styles.primaryMiniBtn}>
+                {guideCopy.closeBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expanded Photo Lightbox Modal */}
+      {expandedPhoto && (
+        <div style={styles.modalBackdrop} onClick={() => setExpandedPhoto(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              ...styles.noteModal,
+              maxWidth: 'min(680px, 94vw)',
+              padding: '14px'
+            }}
+          >
+            <img
+              src={resolveStreamUrl(expandedPhoto.media_url)}
+              alt={expandedPhoto.media_meta?.caption || 'Expanded snapshot'}
+              style={{
+                width: '100%',
+                maxHeight: '72dvh',
+                objectFit: 'contain',
+                borderRadius: '10px',
+                background: '#090d16',
+                display: 'block'
+              }}
+            />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '10px',
+                marginTop: '10px'
+              }}
+            >
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: '#f8fafc' }}>
+                  {expandedPhoto.media_meta?.caption || 'Live Moment'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                  📸 @{expandedPhoto.media_meta?.author || 'Member'}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpandedPhoto(null)}
+                style={styles.primaryMiniBtn}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* IP Certificate Modal */}
+      {activeIpTarget && (
+        <div style={styles.modalBackdrop} onClick={() => setActiveIpTarget(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={styles.noteModal}>
+            <div
+              style={{
+                fontWeight: '800',
+                fontSize: '15px',
+                marginBottom: '4px',
+                color: '#00e676'
+              }}
+            >
+              🛡️ Proof of Creation Certificate
+            </div>
+            <div style={styles.certBox}>
+              <div>
+                <b>Creator:</b> @{activeIpTarget.media_meta?.author}
+              </div>
+              <div>
+                <b>UTC Timestamp:</b> {activeIpTarget.media_meta?.ip_proof?.timestamp_utc}
+              </div>
+              <div>
+                <b>Status:</b>{' '}
+                {activeIpTarget.media_meta?.is_wip ? '🚧 WIP (Draft)' : '✅ Original Release'}
+              </div>
+              <div
+                style={{
+                  marginTop: '6px',
+                  wordBreak: 'break-all',
+                  color: '#7dd3fc',
+                  fontSize: '10px'
+                }}
+              >
+                <b>SHA-256:</b> {activeIpTarget.media_meta?.ip_proof?.sha256}
+              </div>
+            </div>
+            <div
+              style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  const p = activeIpTarget.media_meta?.ip_proof;
+                  navigator.clipboard?.writeText(
+                    `tHek IP Proof | @${activeIpTarget.media_meta?.author} | ${p?.timestamp_utc} | ${p?.sha256}`
+                  );
+                  setStatusBanner('📋 Copied SHA-256 IP Certificate!');
+                  setActiveIpTarget(null);
+                }}
+                style={styles.primaryMiniBtn}
+              >
+                Copy Proof
+              </button>
+              <button type="button" onClick={() => setActiveIpTarget(null)} style={styles.pillBtn}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tip Setup Modal */}
+      {showTipSetup && (
+        <div style={styles.modalBackdrop} onClick={() => setShowTipSetup(false)}>
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleSaveTipSetup}
+            style={styles.noteModal}
+          >
+            <div
+              style={{
+                fontWeight: '800',
+                fontSize: '15px',
+                marginBottom: '8px',
+                color: '#fcd34d'
+              }}
+            >
+              💸 Creator Tip Jar Setup (0% Fee)
+            </div>
+            <input
+              type="text"
+              placeholder="yourname@upi"
+              value={tipInput}
+              onChange={(e) => setTipInput(e.target.value)}
+              autoFocus
+              style={styles.noteInput}
+            />
+            {tipError && (
+              <div style={{ fontSize: '11px', color: '#f87171', marginTop: '6px' }}>{tipError}</div>
+            )}
+            <div
+              style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}
+            >
+              <button type="button" onClick={() => setShowTipSetup(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{ ...styles.primaryMiniBtn, background: '#f59e0b', color: '#1e1b04' }}
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Send Tip Modal */}
+      {activeTipTarget && (
+        <div style={styles.modalBackdrop} onClick={() => setActiveTipTarget(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={styles.noteModal}>
+            <div
+              style={{
+                fontWeight: '800',
+                fontSize: '15px',
+                marginBottom: '8px',
+                color: '#fcd34d'
+              }}
+            >
+              💸 Tip @{activeTipTarget.media_meta?.author || 'Creator'}
+            </div>
+            <input
+              type="number"
+              min="1"
+              max="100000"
+              value={tipAmount}
+              onChange={(e) => setTipAmount(e.target.value)}
+              style={{ ...styles.noteInput, marginBottom: '12px' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={() => setActiveTipTarget(null)} style={styles.pillBtn}>
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleSendTip}
+                style={{ ...styles.primaryMiniBtn, background: '#f59e0b', color: '#1e1b04' }}
+              >
+                Pay ₹{tipAmount || '50'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Q&A Modal */}
+      {showQaModal && (
+        <div style={styles.modalBackdrop} onClick={() => setShowQaModal(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddQa} style={styles.noteModal}>
+            <div
+              style={{
+                fontWeight: '800',
+                fontSize: '14px',
+                marginBottom: '8px',
+                color: '#fbbf24'
+              }}
+            >
+              ❓ Ask the Host / Podcaster
+            </div>
+            <input
+              type="text"
+              placeholder="Type your live question or topic request..."
+              value={qaText}
+              onChange={(e) => setQaText(e.target.value)}
+              maxLength={160}
+              autoFocus
+              style={styles.noteInput}
+            />
+            <div
+              style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}
+            >
+              <button type="button" onClick={() => setShowQaModal(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                style={{ ...styles.primaryMiniBtn, background: '#fbbf24', color: '#1e1b04' }}
+              >
+                Drop Q&A
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Note Modal */}
+      {showNoteModal && (
+        <div style={styles.modalBackdrop} onClick={() => setShowNoteModal(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddNote} style={styles.noteModal}>
+            <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '10px', color: '#fff' }}>
+              {activeRoomCopy.label}
+            </div>
+            <input
+              type="text"
+              placeholder="Write a vibe, lyric, or punchline..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              maxLength={140}
+              autoFocus
+              style={styles.noteInput}
+            />
+            <div
+              style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}
+            >
+              <button type="button" onClick={() => setShowNoteModal(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button type="submit" style={styles.primaryMiniBtn}>
+                Post
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Stage Clip Modal */}
+      {showStageModal && (
+        <div style={styles.modalBackdrop} onClick={() => setShowStageModal(false)}>
+          <form
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleAddStageClip}
+            style={styles.noteModal}
+          >
+            <div
+              style={{
+                fontWeight: '800',
+                fontSize: '15px',
+                marginBottom: '10px',
+                color: '#fb7185'
+              }}
+            >
+              🎬 Drop a Stage Clip
+            </div>
+            <input
+              type="text"
+              placeholder="Clip title"
+              value={stageTitle}
+              onChange={(e) => setStageTitle(e.target.value)}
+              maxLength={80}
+              style={{ ...styles.noteInput, marginBottom: '10px' }}
+            />
+            <input
+              type="url"
+              placeholder="https://youtube.com/watch?v=... or youtu.be/..."
+              value={stageUrl}
+              onChange={(e) => {
+                setStageUrl(e.target.value);
+                if (e.target.value) setStageFile(null);
+              }}
+              style={{ ...styles.noteInput, marginBottom: '10px' }}
+            />
+            <input
+              type="file"
+              accept="video/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                setStageFile(file);
+                if (file) setStageUrl('');
+              }}
+              style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '12px', width: '100%' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={() => setShowStageModal(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUploading || (!stageUrl.trim() && !stageFile)}
+                style={{ ...styles.primaryMiniBtn, background: '#fb7185', color: '#fff' }}
+              >
+                {isUploading ? t.uploadingBtn : 'Drop Clip'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Photo Modal */}
+      {showPhotoModal && (
+        <div style={styles.modalBackdrop} onClick={() => setShowPhotoModal(false)}>
+          <form onClick={(e) => e.stopPropagation()} onSubmit={handleAddPhoto} style={styles.noteModal}>
+            <div
+              style={{
+                fontWeight: '800',
+                fontSize: '15px',
+                marginBottom: '10px',
+                color: '#38bdf8'
+              }}
+            >
+              📸 Pin a Polaroid Photo
+            </div>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+              required
+              style={{ fontSize: '12px', color: '#cbd5e1', marginBottom: '10px', width: '100%' }}
+            />
+            <input
+              type="text"
+              placeholder="Write a short Polaroid caption..."
+              value={photoCaption}
+              onChange={(e) => setPhotoCaption(e.target.value)}
+              maxLength={60}
+              style={{ ...styles.noteInput, marginBottom: '12px' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button type="button" onClick={() => setShowPhotoModal(false)} style={styles.pillBtn}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isUploading || !photoFile}
+                style={{ ...styles.primaryMiniBtn, background: '#38bdf8', color: '#082f49' }}
+              >
+                {isUploading ? t.uploadingBtn : 'Pin Photo'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Creator IP Protection Quick-Toggle Strip */}
+      <div style={{ ...styles.ipStrip, bottom: isMobile ? '118px' : '76px' }}>
+        <button
+          type="button"
+          onClick={() => setIsWipMode(!isWipMode)}
+          style={{
+            ...styles.ipChip,
+            borderColor: isWipMode ? '#eab308' : '#334155',
+            color: isWipMode ? '#fde047' : '#94a3b8'
+          }}
+        >
+          🚧 WIP: {isWipMode ? 'ON' : 'OFF'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setStreamOnlyMode(!streamOnlyMode)}
+          style={{
+            ...styles.ipChip,
+            borderColor: streamOnlyMode ? '#00e676' : '#334155',
+            color: streamOnlyMode ? '#6ee7b7' : '#94a3b8'
+          }}
+        >
+          {streamOnlyMode ? '🔒 Stream-Only' : '⬇ Downloadable'}
+        </button>
+      </div>
+
+      {/* Multi-Device Bottom Dock */}
+      <div style={isMobile ? styles.mobileDock : styles.bottomDock}>
+        <div style={isMobile ? styles.mobileActionRow : styles.desktopActionRow}>
+          <button
+            onClick={() => setShowNoteModal(true)}
+            style={isMobile ? styles.mobileMiniBtn : styles.noteBtn}
+          >
+            {isMobile ? '📝 Note' : t.noteBtn}
+          </button>
+          <button
+            onClick={() => setShowQaModal(true)}
+            style={
+              isMobile
+                ? { ...styles.mobileMiniBtn, borderColor: '#fbbf24', color: '#fde047' }
+                : { ...styles.noteBtn, borderColor: '#fbbf24', color: '#fde047' }
+            }
+          >
+            ❓ Q&A
+          </button>
+          <button
+            onClick={() => setShowStageModal(true)}
+            style={
+              isMobile
+                ? { ...styles.mobileMiniBtn, borderColor: '#fb7185', color: '#fda4af' }
+                : { ...styles.noteBtn, borderColor: '#fb7185', color: '#fda4af' }
+            }
+          >
+            {isMobile ? '🎬 Clip' : t.stageBtn}
+          </button>
+          <button
+            onClick={() => setShowPhotoModal(true)}
+            style={
+              isMobile
+                ? { ...styles.mobileMiniBtn, borderColor: '#38bdf8', color: '#7dd3fc' }
+                : { ...styles.noteBtn, borderColor: '#38bdf8', color: '#7dd3fc' }
+            }
+          >
+            {isMobile ? '📸 Photo' : t.photoBtn}
+          </button>
+        </div>
+
+        <button
+          onPointerDown={startRecording}
+          onPointerUp={stopRecording}
+          onPointerLeave={stopRecording}
+          disabled={isUploading}
+          className={isRecording ? 'recording-pulse' : ''}
+          style={{
+            ...(isMobile ? styles.mobileVoiceBtn : styles.voiceBtn),
+            background: isRecording ? '#ff1744' : isUploading ? '#475569' : activeTheme.accent,
+            color: isRecording ? '#ffffff' : '#051b11'
+          }}
+        >
+          {isUploading
+            ? t.uploadingBtn
+            : isRecording
+            ? t.releaseDropBtn
+            : stackTarget
+            ? t.layerSoundBtn
+            : t.voiceDropBtn}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  board: {
+    position: 'relative',
+    width: '100vw',
+    height: '100dvh',
+    overflow: 'hidden',
+    touchAction: 'none',
+    cursor: 'grab',
+    transition: 'background-color 0.25s ease'
+  },
+  topBar: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '54px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    background: 'rgba(11, 14, 20, 0.92)',
+    backdropFilter: 'blur(12px)',
+    borderBottom: '1px solid #1e293b',
+    zIndex: 55
+  },
+  langSelect: {
+    background: '#0b0e14',
+    border: '1px solid #334155',
+    color: '#00e676',
+    fontSize: '10.5px',
+    fontWeight: '700',
+    padding: '5px 7px',
+    borderRadius: '999px',
+    outline: 'none',
+    cursor: 'pointer'
+  },
+  roomBar: {
+    position: 'fixed',
+    top: '54px',
+    left: 0,
+    right: 0,
+    height: '42px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'rgba(11, 14, 20, 0.78)',
+    backdropFilter: 'blur(8px)',
+    borderBottom: '1px solid rgba(30, 41, 59, 0.6)',
+    overflowX: 'auto',
+    zIndex: 50
+  },
+  roomChip: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px',
+    border: '1px solid #1e293b',
+    fontSize: '11.5px',
+    fontWeight: '700',
+    padding: '5px 12px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
+  },
+  pinnedBanner: {
+    position: 'fixed',
+    top: '102px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 'min(520px, 92vw)',
+    background: 'linear-gradient(90deg, rgba(30, 27, 75, 0.96), rgba(49, 16, 47, 0.96))',
+    border: '1.5px solid #fbbf24',
+    borderRadius: '14px',
+    padding: '9px 14px',
+    zIndex: 65,
+    boxShadow: '0 10px 28px rgba(0,0,0,0.65)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '10px'
+  },
+  unpinBtn: {
+    background: 'rgba(255,255,255,0.12)',
+    border: 'none',
+    color: '#fde047',
+    borderRadius: '999px',
+    padding: '4px 10px',
+    fontSize: '11px',
+    fontWeight: '800',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
+  },
+  pillBtn: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    color: '#e2e8f0',
+    fontSize: '11px',
+    fontWeight: '700',
+    padding: '5px 10px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
+  },
+  zoomControls: {
+    position: 'fixed',
+    display: 'flex',
+    alignItems: 'center',
+    background: 'rgba(19, 24, 34, 0.92)',
+    border: '1px solid #334155',
+    borderRadius: '999px',
+    padding: '3px',
+    zIndex: 45
+  },
+  zoomBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#cbd5e1',
+    fontWeight: '800',
+    fontSize: '14px',
+    padding: '3px 9px',
+    cursor: 'pointer'
+  },
+  inviteDrawer: {
+    position: 'fixed',
+    top: '102px',
+    right: '16px',
+    width: 'min(360px, 90vw)',
+    background: '#131822',
+    border: '1px solid #2d3748',
+    borderRadius: '14px',
+    padding: '12px 14px',
+    zIndex: 60,
+    boxShadow: '0 12px 30px rgba(0,0,0,0.6)'
+  },
+  codeChip: {
+    background: '#0b0e14',
+    border: '1px dashed #00e676',
+    color: '#00e676',
+    fontSize: '12px',
+    fontWeight: '700',
+    padding: '5px 10px',
+    borderRadius: '8px',
+    cursor: 'pointer'
+  },
+  toast: {
+    position: 'fixed',
+    top: '106px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#1e293b',
+    border: '1px solid #38bdf8',
+    color: '#f8fafc',
+    fontSize: '12px',
+    padding: '6px 16px',
+    borderRadius: '999px',
+    zIndex: 70,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    maxWidth: '92vw',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  stackBanner: {
+    position: 'fixed',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: '#0284c7',
+    color: '#fff',
+    fontSize: '12px',
+    padding: '6px 14px',
+    borderRadius: '999px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    zIndex: 60,
+    whiteSpace: 'nowrap'
+  },
+  emptyState: {
+    position: 'absolute',
+    top: '48%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    textAlign: 'center',
+    padding: '20px',
+    width: 'min(380px, 88vw)',
+    pointerEvents: 'none'
+  },
+  ipStrip: {
+    position: 'fixed',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    gap: '8px',
+    zIndex: 50
+  },
+  ipChip: {
+    background: 'rgba(11, 14, 20, 0.9)',
+    border: '1px solid #334155',
+    fontSize: '10.5px',
+    fontWeight: '700',
+    padding: '4px 11px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
+  },
+  bottomDock: {
+    position: 'fixed',
+    bottom: '18px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    background: 'rgba(19, 24, 34, 0.94)',
+    backdropFilter: 'blur(14px)',
+    padding: '9px 14px',
+    borderRadius: '999px',
+    border: '1px solid #2d3748',
+    boxShadow: '0 14px 35px rgba(0,0,0,0.7)',
+    zIndex: 50
+  },
+  desktopActionRow: { display: 'flex', alignItems: 'center', gap: '8px' },
+  mobileDock: {
+    position: 'fixed',
+    bottom: '10px',
+    left: '10px',
+    right: '10px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '7px',
+    background: 'rgba(19, 24, 34, 0.95)',
+    backdropFilter: 'blur(14px)',
+    padding: '9px 10px',
+    borderRadius: '18px',
+    border: '1px solid #2d3748',
+    boxShadow: '0 14px 35px rgba(0,0,0,0.75)',
+    zIndex: 50
+  },
+  mobileActionRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' },
+  mobileMiniBtn: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    color: '#f8fafc',
+    fontWeight: '700',
+    fontSize: '11px',
+    padding: '8px 4px',
+    borderRadius: '10px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    whiteSpace: 'nowrap'
+  },
+  mobileVoiceBtn: {
+    width: '100%',
+    border: 'none',
+    fontWeight: '800',
+    fontSize: '13px',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    cursor: 'pointer',
+    userSelect: 'none',
+    touchAction: 'none',
+    textAlign: 'center'
+  },
+  noteBtn: {
+    background: '#1e293b',
+    border: '1px solid #334155',
+    color: '#f8fafc',
+    fontWeight: '700',
+    fontSize: '12.5px',
+    padding: '10px 14px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
+  },
+  voiceBtn: {
+    border: 'none',
+    fontWeight: '800',
+    fontSize: '12.5px',
+    padding: '10px 20px',
+    borderRadius: '999px',
+    cursor: 'pointer',
+    userSelect: 'none',
+    touchAction: 'none',
+    whiteSpace: 'nowrap'
+  },
+  modalBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.68)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 80,
+    padding: '16px'
+  },
+  noteModal: {
+    width: '100%',
+    maxWidth: '380px',
+    background: '#131822',
+    border: '1px solid #2d3748',
+    borderRadius: '16px',
+    padding: '20px'
+  },
+  certBox: {
+    background: '#0b0e14',
+    border: '1px solid #1e293b',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    fontSize: '11.5px',
+    color: '#e2e8f0',
+    lineHeight: '1.6'
+  },
+  noteInput: {
+    width: '100%',
+    padding: '11px 12px',
+    borderRadius: '10px',
+    border: '1px solid #334155',
+    background: '#0b0e14',
+    color: '#fff',
+    fontSize: '14px',
+    outline: 'none',
+    boxSizing: 'border-box'
+  },
+  primaryMiniBtn: {
+    background: '#00e676',
+    border: 'none',
+    color: '#051b11',
+    fontWeight: '800',
+    fontSize: '12px',
+    padding: '7px 14px',
+    borderRadius: '999px',
+    cursor: 'pointer'
+  }
+};
